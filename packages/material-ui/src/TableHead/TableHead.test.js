@@ -1,59 +1,66 @@
-import React from 'react';
-import { assert } from 'chai';
-import { createMount, getClasses } from '@material-ui/core/test-utils';
+import * as React from 'react';
+import { expect } from 'chai';
+import { getClasses } from '@material-ui/core/test-utils';
+import createMount from 'test/utils/createMount';
+import describeConformance from '../test-utils/describeConformance';
+import { createClientRender } from 'test/utils/createClientRender';
 import TableHead from './TableHead';
 import Tablelvl2Context from '../Table/Tablelvl2Context';
 
 describe('<TableHead />', () => {
-  let mount;
+  const mount = createMount();
   let classes;
-  function mountInTable(node) {
-    const wrapper = mount(<table>{node}</table>);
-    return wrapper.childAt(0);
+  const render = createClientRender();
+  function renderInTable(node) {
+    return render(<table>{node}</table>);
   }
 
   before(() => {
-    mount = createMount();
     classes = getClasses(<TableHead>foo</TableHead>);
   });
 
-  after(() => {
-    mount.cleanUp();
-  });
+  describeConformance(<TableHead />, () => ({
+    classes,
+    inheritComponent: 'thead',
+    mount: (node) => {
+      const wrapper = mount(<table>{node}</table>);
+      return wrapper.find('table').childAt(0);
+    },
 
-  it('should render a thead', () => {
-    const wrapper = mountInTable(<TableHead />);
-    assert.strictEqual(wrapper.getDOMNode().nodeName, 'THEAD');
-  });
-
-  it('should render a div', () => {
-    const wrapper = mount(<TableHead component="div">foo</TableHead>);
-    assert.strictEqual(wrapper.getDOMNode().nodeName, 'DIV');
-  });
-
-  it('should render with the user and root class', () => {
-    const wrapper = mountInTable(<TableHead className="woofTableHead" />);
-    assert.strictEqual(wrapper.find('thead').hasClass('woofTableHead'), true);
-    assert.strictEqual(wrapper.find('thead').hasClass(classes.root), true);
-  });
+    refInstanceof: window.HTMLTableSectionElement,
+    testComponentPropWith: 'tbody',
+  }));
 
   it('should render children', () => {
-    const children = <tr className="test" />;
-    const wrapper = mountInTable(<TableHead>{children}</TableHead>);
-    assert.strictEqual(wrapper.contains(children), true);
+    const children = <tr data-testid="test" />;
+    const { getByTestId } = renderInTable(<TableHead>{children}</TableHead>);
+    getByTestId('test');
   });
 
   it('should define table.head in the child context', () => {
     let context;
-    mountInTable(
+    // TODO: test integration with TableCell
+    renderInTable(
       <TableHead>
         <Tablelvl2Context.Consumer>
-          {value => {
+          {(value) => {
             context = value;
           }}
         </Tablelvl2Context.Consumer>
       </TableHead>,
     );
-    assert.strictEqual(context.variant, 'head');
+    expect(context.variant).to.equal('head');
+  });
+
+  describe('prop: component', () => {
+    it('can render a different component', () => {
+      const { container } = render(<TableHead component="div" />);
+      expect(container.firstChild).to.have.property('nodeName', 'DIV');
+    });
+
+    it('sets role="rowgroup"', () => {
+      const { container } = render(<TableHead component="div" />);
+      expect(container.firstChild).to.have.attribute('role', 'rowgroup');
+    });
   });
 });

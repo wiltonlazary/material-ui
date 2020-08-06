@@ -1,10 +1,9 @@
-// @inheritedComponent Transition
-
-import React from 'react';
+import * as React from 'react';
 import PropTypes from 'prop-types';
-import Transition from 'react-transition-group/Transition';
-import withTheme from '../styles/withTheme';
+import { Transition } from 'react-transition-group';
+import useTheme from '../styles/useTheme';
 import { reflow, getTransitionProps } from '../transitions/utils';
+import useForkRef from '../utils/useForkRef';
 
 function getScale(value) {
   return `scale(${value}, ${value ** 2})`;
@@ -17,32 +16,72 @@ const styles = {
   },
   entered: {
     opacity: 1,
-    // Use translateZ to scrolling issue on Chrome.
-    transform: `${getScale(1)} translateZ(0)`,
+    transform: 'none',
   },
 };
 
 /**
- * The Grow transition is used by the [Tooltip](/demos/tooltips/) and
- * [Popover](/utils/popover/) components.
+ * The Grow transition is used by the [Tooltip](/components/tooltips/) and
+ * [Popover](/components/popover/) components.
  * It uses [react-transition-group](https://github.com/reactjs/react-transition-group) internally.
  */
-class Grow extends React.Component {
-  componentWillUnmount() {
-    clearTimeout(this.timer);
-  }
+const Grow = React.forwardRef(function Grow(props, ref) {
+  const {
+    children,
+    disableStrictModeCompat = false,
+    in: inProp,
+    onEnter,
+    onEntered,
+    onEntering,
+    onExit,
+    onExited,
+    onExiting,
+    style,
+    timeout = 'auto',
+    // eslint-disable-next-line react/prop-types
+    TransitionComponent = Transition,
+    ...other
+  } = props;
+  const timer = React.useRef();
+  const autoTimeout = React.useRef();
+  const theme = useTheme();
 
-  handleEnter = node => {
-    const { theme, timeout } = this.props;
+  const enableStrictModeCompat = theme.unstable_strictMode && !disableStrictModeCompat;
+  const nodeRef = React.useRef(null);
+  const foreignRef = useForkRef(children.ref, ref);
+  const handleRef = useForkRef(enableStrictModeCompat ? nodeRef : undefined, foreignRef);
+
+  const normalizedTransitionCallback = (callback) => (nodeOrAppearing, maybeAppearing) => {
+    if (callback) {
+      const [node, isAppearing] = enableStrictModeCompat
+        ? [nodeRef.current, nodeOrAppearing]
+        : [nodeOrAppearing, maybeAppearing];
+
+      // onEnterXxx and onExitXxx callbacks have a different arguments.length value.
+      if (isAppearing === undefined) {
+        callback(node);
+      } else {
+        callback(node, isAppearing);
+      }
+    }
+  };
+
+  const handleEntering = normalizedTransitionCallback(onEntering);
+
+  const handleEnter = normalizedTransitionCallback((node, isAppearing) => {
     reflow(node); // So the animation always start from the start.
 
-    const { duration: transitionDuration, delay } = getTransitionProps(this.props, {
-      mode: 'enter',
-    });
-    let duration = 0;
+    const { duration: transitionDuration, delay } = getTransitionProps(
+      { style, timeout },
+      {
+        mode: 'enter',
+      },
+    );
+
+    let duration;
     if (timeout === 'auto') {
       duration = theme.transitions.getAutoHeightDuration(node.clientHeight);
-      this.autoTimeout = duration;
+      autoTimeout.current = duration;
     } else {
       duration = transitionDuration;
     }
@@ -58,21 +97,27 @@ class Grow extends React.Component {
       }),
     ].join(',');
 
-    if (this.props.onEnter) {
-      this.props.onEnter(node);
+    if (onEnter) {
+      onEnter(node, isAppearing);
     }
-  };
+  });
 
-  handleExit = node => {
-    const { theme, timeout } = this.props;
-    let duration = 0;
+  const handleEntered = normalizedTransitionCallback(onEntered);
 
-    const { duration: transitionDuration, delay } = getTransitionProps(this.props, {
-      mode: 'exit',
-    });
+  const handleExiting = normalizedTransitionCallback(onExiting);
+
+  const handleExit = normalizedTransitionCallback((node) => {
+    const { duration: transitionDuration, delay } = getTransitionProps(
+      { style, timeout },
+      {
+        mode: 'exit',
+      },
+    );
+
+    let duration;
     if (timeout === 'auto') {
       duration = theme.transitions.getAutoHeightDuration(node.clientHeight);
-      this.autoTimeout = duration;
+      autoTimeout.current = duration;
     } else {
       duration = transitionDuration;
     }
@@ -91,55 +136,74 @@ class Grow extends React.Component {
     node.style.opacity = '0';
     node.style.transform = getScale(0.75);
 
-    if (this.props.onExit) {
-      this.props.onExit(node);
+    if (onExit) {
+      onExit(node);
+    }
+  });
+
+  const handleExited = normalizedTransitionCallback(onExited);
+
+  const addEndListener = (nodeOrNext, maybeNext) => {
+    const next = enableStrictModeCompat ? nodeOrNext : maybeNext;
+    if (timeout === 'auto') {
+      timer.current = setTimeout(next, autoTimeout.current || 0);
     }
   };
 
-  addEndListener = (_, next) => {
-    if (this.props.timeout === 'auto') {
-      this.timer = setTimeout(next, this.autoTimeout || 0);
-    }
-  };
-
-  render() {
-    const { children, onEnter, onExit, style: styleProp, theme, timeout, ...other } = this.props;
-
-    const style = {
-      ...styleProp,
-      ...(React.isValidElement(children) ? children.props.style : {}),
+  React.useEffect(() => {
+    return () => {
+      clearTimeout(timer.current);
     };
+  }, []);
 
-    return (
-      <Transition
-        appear
-        onEnter={this.handleEnter}
-        onExit={this.handleExit}
-        addEndListener={this.addEndListener}
-        timeout={timeout === 'auto' ? null : timeout}
-        {...other}
-      >
-        {(state, childProps) => {
-          return React.cloneElement(children, {
-            style: {
-              opacity: 0,
-              transform: getScale(0.75),
-              ...styles[state],
-              ...style,
-            },
-            ...childProps,
-          });
-        }}
-      </Transition>
-    );
-  }
-}
+  return (
+    <TransitionComponent
+      appear
+      in={inProp}
+      nodeRef={enableStrictModeCompat ? nodeRef : undefined}
+      onEnter={handleEnter}
+      onEntered={handleEntered}
+      onEntering={handleEntering}
+      onExit={handleExit}
+      onExited={handleExited}
+      onExiting={handleExiting}
+      addEndListener={addEndListener}
+      timeout={timeout === 'auto' ? null : timeout}
+      {...other}
+    >
+      {(state, childProps) => {
+        return React.cloneElement(children, {
+          style: {
+            opacity: 0,
+            transform: getScale(0.75),
+            visibility: state === 'exited' && !inProp ? 'hidden' : undefined,
+            ...styles[state],
+            ...style,
+            ...children.props.style,
+          },
+          ref: handleRef,
+          ...childProps,
+        });
+      }}
+    </TransitionComponent>
+  );
+});
 
 Grow.propTypes = {
+  // ----------------------------- Warning --------------------------------
+  // | These PropTypes are generated from the TypeScript type definitions |
+  // |     To update them edit the d.ts file and run "yarn proptypes"     |
+  // ----------------------------------------------------------------------
   /**
    * A single child content element.
    */
-  children: PropTypes.oneOfType([PropTypes.element, PropTypes.func]),
+  children: PropTypes.element,
+  /**
+   * Enable this prop if you encounter 'Function components cannot be given refs',
+   * use `unstable_createStrictModeTheme`,
+   * and can't forward the ref in the child component.
+   */
+  disableStrictModeCompat: PropTypes.bool,
   /**
    * If `true`, show the component; triggers the enter or exit animation.
    */
@@ -151,15 +215,27 @@ Grow.propTypes = {
   /**
    * @ignore
    */
+  onEntered: PropTypes.func,
+  /**
+   * @ignore
+   */
+  onEntering: PropTypes.func,
+  /**
+   * @ignore
+   */
   onExit: PropTypes.func,
   /**
    * @ignore
    */
-  style: PropTypes.object,
+  onExited: PropTypes.func,
   /**
    * @ignore
    */
-  theme: PropTypes.object.isRequired,
+  onExiting: PropTypes.func,
+  /**
+   * @ignore
+   */
+  style: PropTypes.object,
   /**
    * The duration for the transition, in milliseconds.
    * You may specify a single timeout for all transitions, or individually with an object.
@@ -167,16 +243,16 @@ Grow.propTypes = {
    * Set to 'auto' to automatically calculate transition time based on height.
    */
   timeout: PropTypes.oneOfType([
-    PropTypes.number,
-    PropTypes.shape({ enter: PropTypes.number, exit: PropTypes.number }),
     PropTypes.oneOf(['auto']),
+    PropTypes.number,
+    PropTypes.shape({
+      appear: PropTypes.number,
+      enter: PropTypes.number,
+      exit: PropTypes.number,
+    }),
   ]),
-};
-
-Grow.defaultProps = {
-  timeout: 'auto',
 };
 
 Grow.muiSupportAuto = true;
 
-export default withTheme()(Grow);
+export default Grow;

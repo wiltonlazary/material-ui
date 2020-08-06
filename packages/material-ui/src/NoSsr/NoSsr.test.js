@@ -1,29 +1,21 @@
-import React from 'react';
-import { assert } from 'chai';
-import { createMount, createShallow } from '@material-ui/core/test-utils';
+import * as React from 'react';
+import { expect } from 'chai';
+import createMount from 'test/utils/createMount';
+import createServerRender from 'test/utils/createServerRender';
 import NoSsr from './NoSsr';
 
 describe('<NoSsr />', () => {
-  let mount;
-  let shallow;
-
-  before(() => {
-    mount = createMount();
-    shallow = createShallow({ disableLifecycleMethods: true });
-  });
-
-  after(() => {
-    mount.cleanUp();
-  });
+  const mount = createMount();
+  const serverRender = createServerRender();
 
   describe('server-side rendering', () => {
     it('should not render the children as the width is unknown', () => {
-      const wrapper = shallow(
+      const wrapper = serverRender(
         <NoSsr>
           <span>Hello</span>
         </NoSsr>,
       );
-      assert.strictEqual(wrapper.name(), null);
+      expect(wrapper.text()).to.equal('');
     });
   });
 
@@ -31,39 +23,34 @@ describe('<NoSsr />', () => {
     it('should render the children', () => {
       const wrapper = mount(
         <NoSsr>
-          <span>Hello</span>
+          <span id="client-only" />
         </NoSsr>,
       );
-      assert.strictEqual(wrapper.find('span').length, 1);
-      assert.strictEqual(wrapper.text(), 'Hello');
+      expect(wrapper.find('#client-only').exists()).to.equal(true);
     });
   });
 
   describe('prop: fallback', () => {
     it('should render the fallback', () => {
-      const wrapper = shallow(
-        <NoSsr fallback="fallback">
-          <span>Hello</span>
-        </NoSsr>,
+      const wrapper = serverRender(
+        <div>
+          <NoSsr fallback="fallback">
+            <span>Hello</span>
+          </NoSsr>
+        </div>,
       );
-      assert.strictEqual(wrapper.text(), 'fallback');
+      expect(wrapper.text()).to.equal('fallback');
     });
   });
 
   describe('prop: defer', () => {
-    it('should defer the rendering', done => {
+    it('should defer the rendering', () => {
       const wrapper = mount(
         <NoSsr defer>
-          <span>Hello</span>
+          <span id="client-only">Hello</span>
         </NoSsr>,
       );
-      assert.strictEqual(wrapper.find('span').length, 0);
-      setTimeout(() => {
-        wrapper.update();
-        assert.strictEqual(wrapper.find('span').length, 1);
-        assert.strictEqual(wrapper.text(), 'Hello');
-        done();
-      }, 300);
+      expect(wrapper.find('#client-only').exists()).to.equal(true);
     });
   });
 });

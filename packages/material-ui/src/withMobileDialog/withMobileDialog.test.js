@@ -1,5 +1,5 @@
-import React from 'react';
-import { assert } from 'chai';
+import * as React from 'react';
+import { expect } from 'chai';
 import { createShallow } from '@material-ui/core/test-utils';
 import Dialog from '../Dialog';
 import withMobileDialog from './withMobileDialog';
@@ -15,7 +15,7 @@ describe('withMobileDialog', () => {
   });
 
   function isFullScreen(breakpoints, width) {
-    breakpoints.forEach(breakpoint => {
+    breakpoints.forEach((breakpoint) => {
       it(`is for width: ${width} <= ${breakpoint}`, () => {
         const ResponsiveDialog = withMobileDialog({ breakpoint })(Dialog);
         const wrapper = shallow(
@@ -23,19 +23,13 @@ describe('withMobileDialog', () => {
             foo
           </ResponsiveDialog>,
         );
-        assert.strictEqual(
-          wrapper
-            .find('WithMobileDialog')
-            .shallow()
-            .props().fullScreen,
-          true,
-        );
+        expect(wrapper.props().fullScreen).to.equal(true);
       });
     });
   }
 
   function isNotFullScreen(breakpoints, width) {
-    breakpoints.forEach(breakpoint => {
+    breakpoints.forEach((breakpoint) => {
       it(`is not for width: ${width} > ${breakpoint}`, () => {
         const ResponsiveDialog = withMobileDialog({ breakpoint })(Dialog);
         const wrapper = shallow(
@@ -43,13 +37,7 @@ describe('withMobileDialog', () => {
             foo
           </ResponsiveDialog>,
         );
-        assert.strictEqual(
-          wrapper
-            .find('WithMobileDialog')
-            .shallow()
-            .props().fullScreen,
-          false,
-        );
+        expect(wrapper.props().fullScreen).to.equal(false);
       });
     });
   }

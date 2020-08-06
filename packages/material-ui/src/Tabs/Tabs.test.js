@@ -1,55 +1,87 @@
-import React from 'react';
-import { assert } from 'chai';
-import { spy, stub, useFakeTimers } from 'sinon';
-import { ShallowWrapper } from 'enzyme';
+import * as React from 'react';
+import { expect } from 'chai';
+import { spy, useFakeTimers } from 'sinon';
 import consoleErrorMock from 'test/utils/consoleErrorMock';
-import { createShallow, createMount, getClasses, unwrap } from '@material-ui/core/test-utils';
+import { getClasses } from '@material-ui/core/test-utils';
+import createMount from 'test/utils/createMount';
+import { createClientRender, fireEvent, screen } from 'test/utils/createClientRender';
+import createServerRender from 'test/utils/createServerRender';
+import describeConformance from '../test-utils/describeConformance';
+import capitalize from '../utils/capitalize';
 import Tab from '../Tab';
 import Tabs from './Tabs';
-import TabScrollButton from './TabScrollButton';
-import TabIndicator from './TabIndicator';
+import { createMuiTheme, ThemeProvider } from '../styles';
+
+function findScrollButton(container, direction) {
+  return container.querySelector(`svg[data-mui-test="KeyboardArrow${capitalize(direction)}Icon"]`);
+}
+
+function hasLeftScrollButton(container) {
+  const scrollButton = findScrollButton(container, 'left');
+
+  if (!scrollButton) {
+    return false;
+  }
+
+  return !scrollButton.parentElement.classList.contains('Mui-disabled');
+}
+
+function hasRightScrollButton(container) {
+  const scrollButton = findScrollButton(container, 'right');
+
+  if (!scrollButton) {
+    return false;
+  }
+
+  return !scrollButton.parentElement.classList.contains('Mui-disabled');
+}
 
 describe('<Tabs />', () => {
-  let mount;
-  let shallow;
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  // tests mocking getBoundingClientRect prevent mocha to exit
+  const isJSDOM = navigator.userAgent === 'node.js';
+
+  // The test fails on Safari with just:
+  //
+  // container.scrollLeft = 200;
+  // expect(container.scrollLeft).to.equal(200); 💥
+  if (isSafari) {
+    return;
+  }
+
+  const mount = createMount();
   let classes;
-  const TabsNaked = unwrap(Tabs);
-  const noop = () => {};
-  const fakeTabs = {
-    getBoundingClientRect: () => ({}),
-    children: [
-      {
-        children: [
-          {
-            getBoundingClientRect: () => ({}),
-          },
-        ],
-      },
-    ],
-  };
+  const render = createClientRender();
 
   before(() => {
-    shallow = createShallow({ untilSelector: 'Tabs', disableLifecycleMethods: true });
-    classes = getClasses(<Tabs onChange={noop} value={0} />);
-    mount = createMount();
+    classes = getClasses(<Tabs value={0} />);
   });
 
-  after(() => {
-    mount.cleanUp();
+  describeConformance(<Tabs value={0} />, () => ({
+    classes,
+    inheritComponent: 'div',
+    mount,
+    refInstanceof: window.HTMLDivElement,
+  }));
+
+  it('can be named via `aria-label`', () => {
+    render(<Tabs aria-label="string label" />);
+
+    expect(screen.getByRole('tablist')).toHaveAccessibleName('string label');
   });
 
-  it('should render with the root class', () => {
-    const wrapper = shallow(
-      <Tabs width="md" onChange={noop} value={0}>
-        <Tab />
-        <Tab />
-      </Tabs>,
+  it('can be named via `aria-labelledby`', () => {
+    render(
+      <React.Fragment>
+        <h3 id="label-id">complex name</h3>
+        <Tabs aria-labelledby="label-id" />
+      </React.Fragment>,
     );
-    assert.strictEqual(wrapper.name(), 'div');
-    assert.strictEqual(wrapper.hasClass(classes.root), true);
+
+    expect(screen.getByRole('tablist')).toHaveAccessibleName('complex name');
   });
 
-  describe('warning', () => {
+  describe('warnings', () => {
     before(() => {
       consoleErrorMock.spy();
     });
@@ -59,10 +91,9 @@ describe('<Tabs />', () => {
     });
 
     it('should warn if the input is invalid', () => {
-      shallow(<Tabs onChange={noop} value={0} centered variant="scrollable" />);
-      assert.match(
-        consoleErrorMock.args()[0][0],
-        /Material-UI: you can not use the `centered={true}` and `variant="scrollable"`/,
+      render(<Tabs value={0} centered variant="scrollable" />);
+      expect(consoleErrorMock.messages()[0]).to.match(
+        /Material-UI: You can not use the `centered={true}` and `variant="scrollable"`/,
       );
     });
   });
@@ -70,13 +101,10 @@ describe('<Tabs />', () => {
   describe('prop: action', () => {
     it('should be able to access updateIndicator function', () => {
       let tabsActions = {};
-      mount(
+      render(
         <Tabs
-          width="md"
-          onChange={noop}
           value={0}
-          className="woofTabs"
-          action={actions => {
+          action={(actions) => {
             tabsActions = actions;
           }}
         >
@@ -85,280 +113,235 @@ describe('<Tabs />', () => {
         </Tabs>,
       );
 
-      assert.strictEqual(
-        typeof tabsActions.updateIndicator === 'function',
-        true,
-        'Should be a function.',
-      );
+      expect(typeof tabsActions.updateIndicator).to.equal('function');
       tabsActions.updateIndicator();
-    });
-  });
-
-  describe('prop: className', () => {
-    it('should render with the user and root classes', () => {
-      const wrapper = shallow(
-        <Tabs width="md" onChange={noop} value={0} className="woofTabs">
-          <Tab />
-          <Tab />
-        </Tabs>,
-      );
-      assert.strictEqual(wrapper.hasClass('woofTabs'), true);
-      assert.strictEqual(wrapper.hasClass(classes.root), true);
     });
   });
 
   describe('prop: centered', () => {
     it('should render with the centered class', () => {
-      const wrapper = shallow(
-        <Tabs width="md" onChange={noop} value={0} centered>
+      const { container } = render(
+        <Tabs value={0} centered>
           <Tab />
           <Tab />
         </Tabs>,
       );
       const selector = `.${classes.flexContainer}.${classes.centered}`;
-      assert.strictEqual(wrapper.find(selector).name(), 'div');
-      assert.strictEqual(wrapper.find(selector).length, 1);
+      expect(container.querySelector(selector).nodeName).to.equal('DIV');
     });
   });
 
   describe('prop: children', () => {
-    it('should accept an invalid child', () => {
-      const wrapper = shallow(
-        <Tabs width="md" onChange={noop} value={0}>
+    it('should accept a null child', () => {
+      const { getAllByRole } = render(
+        <Tabs value={0}>
           {null}
           <Tab />
         </Tabs>,
       );
-      assert.strictEqual(wrapper.find(Tab).length, 1);
+      expect(getAllByRole('tab')).to.have.lengthOf(1);
     });
 
     it('should support empty children', () => {
-      const wrapper = mount(<Tabs width="md" onChange={noop} value={1} />);
-      assert.strictEqual(wrapper.find('EventListener').length, 1);
+      render(<Tabs value={1} />);
+    });
+
+    it('puts the selected child in tab order', () => {
+      const { getAllByRole, setProps } = render(
+        <Tabs value={1}>
+          <Tab />
+          <Tab />
+        </Tabs>,
+      );
+
+      expect(getAllByRole('tab').map((tab) => tab.tabIndex)).to.have.ordered.members([-1, 0]);
+
+      setProps({ value: 0 });
+
+      expect(getAllByRole('tab').map((tab) => tab.tabIndex)).to.have.ordered.members([0, -1]);
     });
   });
 
   describe('prop: value', () => {
-    let wrapper;
-    before(() => {
-      wrapper = shallow(
-        <Tabs width="md" onChange={noop} value={1}>
-          <Tab />
-          <Tab />
-        </Tabs>,
-      );
-    });
-
-    after(() => {
-      consoleErrorMock.reset();
-    });
+    const tabs = (
+      <Tabs value={1}>
+        <Tab />
+        <Tab />
+      </Tabs>
+    );
 
     it('should pass selected prop to children', () => {
-      assert.strictEqual(
-        wrapper
-          .find(Tab)
-          .at(0)
-          .props().selected,
-        false,
-        'should have selected to false',
-      );
-      assert.strictEqual(
-        wrapper
-          .find(Tab)
-          .at(1)
-          .props().selected,
-        true,
-        'should have selected',
-      );
+      const { getAllByRole } = render(tabs);
+      const tabElements = getAllByRole('tab');
+      expect(tabElements[0]).to.have.attribute('aria-selected', 'false');
+      expect(tabElements[1]).to.have.attribute('aria-selected', 'true');
     });
 
-    it('should switch from the original value', () => {
-      wrapper.setProps({ value: 0 });
-      assert.strictEqual(
-        wrapper
-          .find(Tab)
-          .at(0)
-          .props().selected,
-        true,
-        'should have switched to true',
+    it('should accept any value as selected tab value', () => {
+      const tab0 = {};
+      const tab1 = {};
+      expect(tab0).to.not.equal(tab1);
+
+      const { getAllByRole } = render(
+        <Tabs value={tab0}>
+          <Tab value={tab0} />
+          <Tab value={tab1} />
+        </Tabs>,
       );
-      assert.strictEqual(
-        wrapper
-          .find(Tab)
-          .at(1)
-          .props().selected,
-        false,
-        'should have switched to false',
-      );
+      const tabElements = getAllByRole('tab');
+      expect(tabElements[0]).to.have.attribute('aria-selected', 'true');
+      expect(tabElements[1]).to.have.attribute('aria-selected', 'false');
     });
 
     describe('indicator', () => {
       it('should accept a false value', () => {
-        const wrapper2 = mount(
-          <Tabs width="md" onChange={noop} value={false}>
+        const { container } = render(
+          <Tabs value={false}>
             <Tab />
             <Tab />
           </Tabs>,
         );
-        assert.strictEqual(wrapper2.find(TabIndicator).props().style.width, 0);
-      });
-
-      it('should work server-side', () => {
-        const wrapper2 = shallow(
-          <Tabs width="md" onChange={noop} value={1}>
-            <Tab />
-            <Tab />
-          </Tabs>,
-          { disableLifecycleMethods: true },
-        );
-        const indicator = new ShallowWrapper(
-          wrapper2
-            .find(Tab)
-            .at(1)
-            .props().indicator,
-          wrapper2,
-        );
-        assert.deepEqual(indicator.props().style, {});
-      });
-
-      it('should let the selected <Tab /> render the indicator', () => {
-        const wrapper2 = shallow(
-          <Tabs width="md" onChange={noop} value={1}>
-            <Tab />
-            <Tab />
-          </Tabs>,
-          { disableLifecycleMethods: true },
-        );
-        assert.strictEqual(
-          wrapper2
-            .find(Tab)
-            .at(0)
-            .props().indicator,
-          false,
-        );
-        assert.strictEqual(
-          wrapper2
-            .find(Tab)
-            .at(1)
-            .props().indicator.type,
-          TabIndicator,
-        );
-      });
-
-      it('should accept any value as selected tab value', () => {
-        const tab0 = {};
-        const tab1 = {};
-        assert.notStrictEqual(tab0, tab1);
-        const wrapper2 = shallow(
-          <Tabs width="md" onChange={noop} value={tab0}>
-            <Tab value={tab0} />
-            <Tab value={tab1} />
-          </Tabs>,
-        );
-        assert.strictEqual(wrapper2.instance().valueToIndex.size, 2);
+        expect(container.querySelector(`.${classes.indicator}`).style.width).to.equal('0px');
       });
 
       it('should render the indicator', () => {
-        const wrapper2 = mount(
-          <Tabs width="md" onChange={noop} value={1}>
+        const { container, getAllByRole } = render(
+          <Tabs value={1}>
             <Tab />
             <Tab />
           </Tabs>,
         );
-        assert.strictEqual(
-          wrapper2
-            .find(Tab)
-            .at(0)
-            .props().indicator,
-          false,
-        );
-        assert.strictEqual(
-          wrapper2
-            .find(Tab)
-            .at(1)
-            .props().indicator,
-          false,
-        );
-        assert.strictEqual(wrapper2.find(TabIndicator).length, 1);
+        const tabElements = getAllByRole('tab');
+        expect(tabElements[0].querySelector(`.${classes.indicator}`)).to.equal(null);
+        expect(tabElements[1].querySelector(`.${classes.indicator}`)).to.equal(null);
+        expect(container.querySelector(`.${classes.indicator}`)).not.to.equal(null);
       });
 
-      it('should update the indicator state no matter what', () => {
-        const wrapper2 = mount(
-          <TabsNaked width="md" onChange={noop} value={1} classes={{}} theme={{}}>
+      it('should update the indicator at each render', function test() {
+        if (isJSDOM) {
+          this.skip();
+        }
+
+        const { setProps, container, getByRole } = render(
+          <Tabs value={1}>
             <Tab />
             <Tab />
-          </TabsNaked>,
+          </Tabs>,
         );
-        const instance = wrapper2.instance();
-        stub(instance, 'scrollSelectedIntoView');
+        const tablistContainer = getByRole('tablist').parentElement;
+        const tab = getByRole('tablist').children[1];
 
-        wrapper2.setState({
-          indicatorStyle: {
-            left: 10,
-            width: 40,
-          },
+        Object.defineProperty(tablistContainer, 'clientWidth', { value: 100 });
+        Object.defineProperty(tablistContainer, 'scrollWidth', { value: 100 });
+        tablistContainer.getBoundingClientRect = () => ({
+          left: 0,
+          right: 100,
         });
-        wrapper2.setProps({
-          value: 0,
+        tab.getBoundingClientRect = () => ({
+          left: 50,
+          width: 50,
+          right: 100,
         });
-
-        assert.strictEqual(
-          instance.scrollSelectedIntoView.callCount >= 2,
-          true,
-          'should have called scrollSelectedIntoView',
-        );
+        setProps();
+        let style;
+        style = container.querySelector(`.${classes.indicator}`).style;
+        expect(style.left).to.equal('50px');
+        expect(style.width).to.equal('50px');
+        tab.getBoundingClientRect = () => ({
+          left: 60,
+          width: 50,
+          right: 110,
+        });
+        setProps();
+        style = container.querySelector(`.${classes.indicator}`).style;
+        expect(style.left).to.equal('60px');
+        expect(style.width).to.equal('50px');
       });
     });
 
-    it('should warn when the value is invalid', () => {
-      consoleErrorMock.spy();
-      mount(
-        <Tabs width="md" onChange={noop} value={2}>
-          <Tab value={1} />
-          <Tab value={3} />
-        </Tabs>,
-      );
-      assert.strictEqual(consoleErrorMock.callCount(), 3);
-      assert.match(
-        consoleErrorMock.args()[0][0],
-        /You can provide one of the following values: 1, 3/,
-      );
+    describe('warnings', () => {
+      beforeEach(() => {
+        consoleErrorMock.spy();
+      });
+
+      afterEach(() => {
+        consoleErrorMock.reset();
+      });
+
+      it('warns when the value is not present in any tab', () => {
+        render(
+          <Tabs value={2}>
+            <Tab value={1} />
+            <Tab value={3} />
+          </Tabs>,
+        );
+        expect(consoleErrorMock.callCount()).to.equal(4);
+        expect(consoleErrorMock.messages()[0]).to.include(
+          'You can provide one of the following values: 1, 3',
+        );
+      });
     });
   });
 
   describe('prop: onChange', () => {
     it('should call onChange when clicking', () => {
       const handleChange = spy();
-      // use mount to ensure that click event on Tab can be fired
-      const wrapper = mount(
-        <Tabs width="md" value={0} onChange={handleChange}>
+      const { getAllByRole } = render(
+        <Tabs value={0} onChange={handleChange}>
           <Tab />
           <Tab />
         </Tabs>,
       );
-      wrapper
-        .find(Tab)
-        .at(1)
-        .simulate('click');
-      wrapper.setProps({ value: 1 });
-      assert.strictEqual(handleChange.callCount, 1, 'should have been called once');
-      assert.strictEqual(handleChange.args[0][1], 1, 'should have been called with value 1');
-      wrapper.unmount();
+
+      fireEvent.click(getAllByRole('tab')[1]);
+      expect(handleChange.callCount).to.equal(1);
+      expect(handleChange.args[0][1]).to.equal(1);
+    });
+
+    it('when `selectionFollowsFocus` should call if an unselected tab gets focused', () => {
+      const handleChange = spy((event, value) => value);
+      const { getAllByRole } = render(
+        <Tabs value={0} onChange={handleChange} selectionFollowsFocus>
+          <Tab />
+          <Tab />
+        </Tabs>,
+      );
+      const [, lastTab] = getAllByRole('tab');
+
+      lastTab.focus();
+
+      expect(handleChange.callCount).to.equal(1);
+      expect(handleChange.firstCall.returnValue).to.equal(1);
+    });
+
+    it('when `selectionFollowsFocus` should not call if an selected tab gets focused', () => {
+      const handleChange = spy();
+      const { getAllByRole } = render(
+        <Tabs value={0} onChange={handleChange} selectionFollowsFocus>
+          <Tab />
+          <Tab />
+        </Tabs>,
+      );
+      const [firstTab] = getAllByRole('tab');
+
+      firstTab.focus();
+
+      expect(handleChange.callCount).to.equal(0);
     });
   });
 
   describe('prop: variant="scrollable"', () => {
     let clock;
-    let wrapper;
+    const tabs = (
+      <Tabs value={0} style={{ width: 200 }} variant="scrollable">
+        <Tab />
+        <Tab />
+        <Tab />
+      </Tabs>
+    );
 
     before(() => {
       clock = useFakeTimers();
-      wrapper = shallow(
-        <Tabs width="md" onChange={noop} value={0} variant="scrollable">
-          <Tab />
-          <Tab />
-        </Tabs>,
-      );
     });
 
     after(() => {
@@ -366,50 +349,68 @@ describe('<Tabs />', () => {
     });
 
     it('should render with the scrollable class', () => {
+      const { container } = render(tabs);
       const selector = `.${classes.scroller}.${classes.scrollable}`;
-      assert.strictEqual(wrapper.find(selector).name(), 'div');
-      assert.strictEqual(wrapper.find(selector).length, 1);
+      expect(container.querySelector(selector).tagName).to.equal('DIV');
+      expect(container.querySelectorAll(selector)).to.have.lengthOf(1);
     });
 
-    it('should response to scroll events', () => {
-      const instance = wrapper.instance();
-      instance.tabsRef = { scrollLeft: 100, ...fakeTabs };
-      spy(instance, 'updateScrollButtonState');
-      const selector = `.${classes.scroller}.${classes.scrollable}`;
-      wrapper.find(selector).simulate('scroll');
+    it('should response to scroll events', function test() {
+      if (isJSDOM) {
+        this.skip();
+      }
+      const { container, setProps, getByRole } = render(tabs);
+      const tablistContainer = getByRole('tablist').parentElement;
+
+      Object.defineProperty(tablistContainer, 'clientWidth', { value: 120 });
+      tablistContainer.scrollLeft = 10;
+      Object.defineProperty(tablistContainer, 'scrollWidth', { value: 216 });
+      Object.defineProperty(tablistContainer, 'getBoundingClientRect', {
+        value: () => ({
+          left: 0,
+          right: 50,
+        }),
+      });
+      setProps();
+      clock.tick(1000);
+      expect(hasLeftScrollButton(container)).to.equal(true);
+      expect(hasRightScrollButton(container)).to.equal(true);
+      tablistContainer.scrollLeft = 0;
+      fireEvent.scroll(container.querySelector(`.${classes.scroller}.${classes.scrollable}`));
       clock.tick(166);
-      assert.strictEqual(
-        instance.updateScrollButtonState.called,
-        true,
-        'should have called updateScrollButtonState',
-      );
+
+      expect(hasLeftScrollButton(container)).to.equal(false);
+      expect(hasRightScrollButton(container)).to.equal(true);
     });
 
     it('should get a scrollbar size listener', () => {
-      // use mount to ensure that handleScrollbarSizeChange gets covered
-      const mountWrapper = mount(
-        <Tabs width="md" onChange={noop} value={0} variant="scrollable">
+      const { setProps, getByRole } = render(
+        <Tabs value={0}>
           <Tab />
           <Tab />
         </Tabs>,
       );
-      assert.strictEqual(mountWrapper.find('ScrollbarSize').length, 1);
-      mountWrapper.unmount();
+      const tablistContainer = getByRole('tablist').parentElement;
+      expect(tablistContainer.style.overflow).to.equal('hidden');
+      setProps({
+        variant: 'scrollable',
+      });
+      expect(tablistContainer.style.overflow).to.equal('');
     });
   });
 
   describe('prop: !variant="scrollable"', () => {
     it('should not render with the scrollable class', () => {
-      const wrapper = shallow(
-        <Tabs width="md" onChange={noop} value={0}>
+      const { container } = render(
+        <Tabs value={0}>
           <Tab />
           <Tab />
         </Tabs>,
       );
       const baseSelector = `.${classes.scroller}`;
       const selector = `.${classes.scroller}.${classes.scrollable}`;
-      assert.strictEqual(wrapper.find(baseSelector).length, 1);
-      assert.strictEqual(wrapper.find(selector).length, 0);
+      expect(container.querySelector(baseSelector)).not.to.equal(null);
+      expect(container.querySelector(selector)).to.equal(null);
     });
   });
 
@@ -425,201 +426,608 @@ describe('<Tabs />', () => {
     });
 
     it('should render scroll buttons', () => {
-      const wrapper = shallow(
-        <Tabs width="md" onChange={noop} value={0} variant="scrollable" scrollButtons="on">
+      const { container } = render(
+        <Tabs value={0} variant="scrollable" scrollButtons="on">
           <Tab />
           <Tab />
         </Tabs>,
       );
-      assert.strictEqual(wrapper.find(TabScrollButton).length, 2, 'should be two');
+      expect(container.querySelectorAll(`.${classes.scrollButtons}`)).to.have.lengthOf(2);
     });
 
-    it('should render scroll buttons automatically', () => {
-      const wrapper = shallow(
-        <Tabs width="md" onChange={noop} value={0} variant="scrollable" scrollButtons="auto">
-          <Tab />
-          <Tab />
-        </Tabs>,
-      );
-      assert.strictEqual(wrapper.find(TabScrollButton).length, 2, 'should be two');
-    });
+    it('should handle window resize event', function test() {
+      if (isJSDOM) {
+        this.skip();
+      }
 
-    it('should should not render scroll buttons automatically', () => {
-      const wrapper = shallow(
-        <Tabs width="sm" onChange={noop} value={0} variant="scrollable" scrollButtons="auto">
+      const { container, setProps, getByRole } = render(
+        <Tabs value={0} variant="scrollable" scrollButtons="on" style={{ width: 200 }}>
+          <Tab />
           <Tab />
           <Tab />
         </Tabs>,
       );
-      assert.strictEqual(wrapper.find(TabScrollButton).length, 2, 'should be zero');
-      assert.strictEqual(
-        wrapper.find(TabScrollButton).everyWhere(node => node.hasClass(classes.scrollButtonsAuto)),
-        true,
-      );
-    });
 
-    it('should handle window resize event', () => {
-      const wrapper = shallow(
-        <Tabs width="md" onChange={noop} value={0} variant="scrollable" scrollButtons="on">
-          <Tab />
-          <Tab />
-        </Tabs>,
-      );
-      const instance = wrapper.instance();
-      stub(instance, 'updateScrollButtonState');
-      stub(instance, 'updateIndicatorState');
-      wrapper
-        .find('EventListener')
-        .at(0)
-        .simulate('resize');
+      const tablistContainer = getByRole('tablist').parentElement;
+
+      Object.defineProperty(tablistContainer, 'clientWidth', { value: 120 });
+      tablistContainer.scrollLeft = 10;
+      Object.defineProperty(tablistContainer, 'scrollWidth', { value: 216 });
+      Object.defineProperty(tablistContainer, 'getBoundingClientRect', {
+        value: () => ({
+          left: 0,
+          right: 100,
+        }),
+      });
+      setProps();
+      clock.tick(1000);
+      expect(hasLeftScrollButton(container)).to.equal(true);
+      expect(hasRightScrollButton(container)).to.equal(true);
+      tablistContainer.scrollLeft = 0;
+
+      window.dispatchEvent(new window.Event('resize', {}));
       clock.tick(166);
-      assert.strictEqual(instance.updateScrollButtonState.called, true);
-      assert.strictEqual(instance.updateIndicatorState.called, true);
+
+      expect(hasLeftScrollButton(container)).to.equal(false);
+      expect(hasRightScrollButton(container)).to.equal(true);
     });
 
     describe('scroll button visibility states', () => {
-      let wrapper;
-      let instance;
-      before(() => {
-        wrapper = shallow(
-          <Tabs width="md" onChange={noop} value={0} variant="scrollable" scrollButtons="on">
+      it('should set neither left nor right scroll button state', () => {
+        const { container, setProps, getByRole } = render(
+          <Tabs value={0} variant="scrollable" scrollButtons="on" style={{ width: 200 }}>
             <Tab />
             <Tab />
           </Tabs>,
         );
-        instance = wrapper.instance();
-      });
+        const tablistContainer = getByRole('tablist').parentElement;
 
-      it('should set neither left nor right scroll button state', () => {
-        instance.tabsRef = { scrollLeft: 0, scrollWidth: 90, clientWidth: 100, ...fakeTabs };
-        instance.updateScrollButtonState();
-        assert.strictEqual(wrapper.state().showLeftScroll, false);
-        assert.strictEqual(wrapper.state().showRightScroll, false);
+        Object.defineProperty(tablistContainer, 'clientWidth', { value: 200 });
+        Object.defineProperty(tablistContainer, 'scrollWidth', { value: 200 });
+
+        setProps();
+        expect(hasLeftScrollButton(container)).to.equal(false);
+        expect(hasRightScrollButton(container)).to.equal(false);
       });
 
       it('should set only left scroll button state', () => {
-        instance.tabsRef = { scrollLeft: 1, ...fakeTabs };
-        instance.updateScrollButtonState();
-        assert.strictEqual(wrapper.state().showLeftScroll, true);
-        assert.strictEqual(wrapper.state().showRightScroll, false);
+        const { container, setProps, getByRole } = render(
+          <Tabs value={0} variant="scrollable" scrollButtons="on" style={{ width: 200 }}>
+            <Tab />
+            <Tab />
+            <Tab />
+          </Tabs>,
+        );
+        const tablistContainer = getByRole('tablist').parentElement;
+
+        Object.defineProperty(tablistContainer, 'clientWidth', { value: 120 });
+        Object.defineProperty(tablistContainer, 'scrollWidth', { value: 216 });
+        tablistContainer.scrollLeft = 96;
+
+        setProps();
+        expect(hasLeftScrollButton(container)).to.equal(true);
+        expect(hasRightScrollButton(container)).to.equal(false);
       });
 
       it('should set only right scroll button state', () => {
-        instance.tabsRef = { scrollLeft: 0, scrollWidth: 110, clientWidth: 100, ...fakeTabs };
-        instance.updateScrollButtonState();
-        assert.strictEqual(wrapper.state().showLeftScroll, false);
-        assert.strictEqual(wrapper.state().showRightScroll, true);
+        const { container, setProps, getByRole } = render(
+          <Tabs value={0} variant="scrollable" scrollButtons="on" style={{ width: 200 }}>
+            <Tab />
+            <Tab />
+            <Tab />
+          </Tabs>,
+        );
+        const tablistContainer = getByRole('tablist').parentElement;
+
+        Object.defineProperty(tablistContainer, 'clientWidth', { value: 120 });
+        Object.defineProperty(tablistContainer, 'scrollWidth', { value: 216 });
+        tablistContainer.scrollLeft = 0;
+
+        setProps();
+        expect(hasLeftScrollButton(container)).to.equal(false);
+        expect(hasRightScrollButton(container)).to.equal(true);
       });
 
       it('should set both left and right scroll button state', () => {
-        instance.tabsRef = { scrollLeft: 1, scrollWidth: 110, clientWidth: 100, ...fakeTabs };
-        instance.updateScrollButtonState();
-        assert.strictEqual(wrapper.state().showLeftScroll, true);
-        assert.strictEqual(wrapper.state().showRightScroll, true);
+        const { container, setProps, getByRole } = render(
+          <Tabs value={0} variant="scrollable" scrollButtons="on" style={{ width: 200 }}>
+            <Tab />
+            <Tab />
+          </Tabs>,
+        );
+        const tablistContainer = getByRole('tablist').parentElement;
+
+        Object.defineProperty(tablistContainer, 'clientWidth', { value: 120 });
+        Object.defineProperty(tablistContainer, 'scrollWidth', { value: 216 });
+        tablistContainer.scrollLeft = 5;
+
+        setProps();
+        expect(hasLeftScrollButton(container)).to.equal(true);
+        expect(hasRightScrollButton(container)).to.equal(true);
       });
     });
   });
 
   describe('scroll button behavior', () => {
-    let instance;
-    let wrapper;
-    let scrollSpy;
-    const dimensions = { scrollLeft: 100, clientWidth: 200, scrollWidth: 1000 };
+    let clock;
+
     before(() => {
-      wrapper = shallow(
-        <Tabs width="md" onChange={noop} value={0} variant="scrollable" scrollButtons="on">
+      clock = useFakeTimers();
+    });
+
+    after(() => {
+      clock.restore();
+    });
+
+    it('should call moveTabsScroll', () => {
+      const { container, setProps, getByRole } = render(
+        <Tabs value={0} variant="scrollable" scrollButtons="on" style={{ width: 200 }}>
+          <Tab />
           <Tab />
           <Tab />
         </Tabs>,
       );
-      instance = wrapper.instance();
-      instance.tabsRef = dimensions;
-      scrollSpy = spy(instance, 'moveTabsScroll');
-    });
+      const tablistContainer = getByRole('tablist').parentElement;
+      Object.defineProperty(tablistContainer, 'clientWidth', { value: 120 });
+      Object.defineProperty(tablistContainer, 'scrollWidth', { value: 216 });
+      tablistContainer.scrollLeft = 20;
+      setProps();
+      clock.tick(1000);
+      expect(hasLeftScrollButton(container)).to.equal(true);
+      expect(hasRightScrollButton(container)).to.equal(true);
 
-    it('should call moveTabsScroll', () => {
-      wrapper
-        .find(TabScrollButton)
-        .at(0)
-        .simulate('click');
-      assert.strictEqual(
-        scrollSpy.args[0][0],
-        -dimensions.clientWidth,
-        `should be called with -${dimensions.clientWidth}`,
-      );
-      wrapper
-        .find(TabScrollButton)
-        .at(1)
-        .simulate('click');
-      assert.strictEqual(
-        scrollSpy.args[1][0],
-        dimensions.clientWidth,
-        `should be called with ${dimensions.clientWidth}`,
+      fireEvent.click(findScrollButton(container, 'left'));
+      clock.tick(1000);
+      expect(tablistContainer.scrollLeft).not.to.be.above(0);
+
+      tablistContainer.scrollLeft = 0;
+      fireEvent.click(findScrollButton(container, 'right'));
+      clock.tick(1000);
+      expect(tablistContainer.scrollLeft).not.to.be.below(
+        tablistContainer.scrollWidth - tablistContainer.clientWidth,
       );
     });
   });
 
   describe('scroll into view behavior', () => {
-    let scrollStub;
-    let instance;
-    let metaStub;
+    let clock;
 
-    beforeEach(() => {
-      const wrapper = shallow(
-        <Tabs width="md" onChange={noop} value={0} variant="scrollable">
+    before(() => {
+      clock = useFakeTimers();
+    });
+
+    after(() => {
+      clock.restore();
+    });
+
+    it('should scroll left tab into view', function test() {
+      if (isJSDOM) {
+        this.skip();
+      }
+
+      const { setProps, getByRole } = render(
+        <Tabs value={0} variant="scrollable" style={{ width: 200 }}>
+          <Tab />
           <Tab />
           <Tab />
         </Tabs>,
       );
-      instance = wrapper.instance();
-      scrollStub = stub(instance, 'scroll');
-      metaStub = stub(instance, 'getTabsMeta');
-    });
+      const tablist = getByRole('tablist');
+      const tablistContainer = tablist.parentElement;
+      const tab = tablist.children[0];
 
-    afterEach(() => {
-      instance.scroll.restore();
-    });
-
-    it('should scroll left tab into view', () => {
-      metaStub.returns({
-        tabsMeta: { left: 0, right: 100, scrollLeft: 10 },
-        tabMeta: { left: -10, right: 10 },
+      Object.defineProperty(tablistContainer, 'clientWidth', { value: 120 });
+      Object.defineProperty(tablistContainer, 'scrollWidth', { value: 216 });
+      tablistContainer.scrollLeft = 20;
+      tablistContainer.getBoundingClientRect = () => ({
+        left: 0,
+        right: 100,
       });
-
-      instance.scrollSelectedIntoView();
-      assert.strictEqual(scrollStub.args[0][0], 0);
-    });
-
-    it('should scroll right tab into view', () => {
-      metaStub.returns({
-        tabsMeta: { left: 0, right: 100, scrollLeft: 0 },
-        tabMeta: { left: 90, right: 110 },
+      tab.getBoundingClientRect = () => ({
+        left: -20,
+        width: 50,
+        right: 30,
       });
-
-      instance.scrollSelectedIntoView();
-      assert.strictEqual(scrollStub.args[0][0], 10);
-    });
-
-    it('should support value=false', () => {
-      metaStub.returns({
-        tabsMeta: { left: 0, right: 100, scrollLeft: 0 },
-        tabMeta: undefined,
-      });
-
-      instance.scrollSelectedIntoView();
-      assert.strictEqual(scrollStub.callCount, 0);
+      setProps();
+      clock.tick(1000);
+      expect(tablistContainer.scrollLeft).to.equal(0);
     });
   });
 
   describe('prop: TabIndicatorProps', () => {
     it('should merge the style', () => {
-      const wrapper = shallow(
-        <Tabs onChange={noop} value={0} TabIndicatorProps={{ style: { backgroundColor: 'green' } }}>
+      const { container } = render(
+        <Tabs value={0} TabIndicatorProps={{ style: { backgroundColor: 'green' } }}>
           <Tab />
         </Tabs>,
       );
-      wrapper.setState({ mounted: true });
-      assert.strictEqual(wrapper.find(TabIndicator).props().style.backgroundColor, 'green');
+      const style = container.querySelector(`.${classes.indicator}`).style;
+      expect(style.backgroundColor).to.equal('green');
+    });
+  });
+
+  describe('prop: orientation', () => {
+    it('should support orientation="vertical"', function test() {
+      if (isJSDOM) {
+        this.skip();
+      }
+
+      const { setProps, container, getByRole } = render(
+        <Tabs value={1} variant="scrollable" scrollButtons="on" orientation="vertical">
+          <Tab />
+          <Tab />
+        </Tabs>,
+      );
+      const tablist = getByRole('tablist');
+      const tablistContainer = tablist.parentElement;
+      const tab = tablist.children[1];
+
+      Object.defineProperty(tablistContainer, 'clientHeight', { value: 100 });
+      Object.defineProperty(tablistContainer, 'scrollHeight', { value: 100 });
+      tablistContainer.getBoundingClientRect = () => ({
+        top: 0,
+        bottom: 100,
+      });
+      tab.getBoundingClientRect = () => ({
+        top: 50,
+        height: 50,
+        bottom: 100,
+      });
+      setProps();
+      let style;
+      style = container.querySelector(`.${classes.indicator}`).style;
+      expect(style.top).to.equal('50px');
+      expect(style.height).to.equal('50px');
+      tab.getBoundingClientRect = () => ({
+        top: 60,
+        height: 50,
+        bottom: 110,
+      });
+      setProps();
+      style = container.querySelector(`.${classes.indicator}`).style;
+      expect(style.top).to.equal('60px');
+      expect(style.height).to.equal('50px');
+    });
+  });
+
+  describe('server-side render', () => {
+    const serverRender = createServerRender({ expectUseLayoutEffectWarning: true });
+
+    it('should let the selected <Tab /> render the indicator server-side', () => {
+      const markup = serverRender(
+        <Tabs value={1}>
+          <Tab />
+          <Tab />
+        </Tabs>,
+      );
+      const indicator = markup.find(`button > .${classes.indicator}`);
+      expect(indicator).to.have.lengthOf(1);
+    });
+  });
+
+  describe('keyboard navigation when focus is on a tab', () => {
+    [
+      ['horizontal', 'ltr', 'ArrowLeft', 'ArrowRight'],
+      ['horizontal', 'rtl', 'ArrowRight', 'ArrowLeft'],
+      ['vertical', undefined, 'ArrowUp', 'ArrowDown'],
+    ].forEach((entry) => {
+      const [orientation, direction, previousItemKey, nextItemKey] = entry;
+
+      let wrapper;
+      before(() => {
+        const theme = createMuiTheme({ direction });
+        wrapper = ({ children }) => <ThemeProvider theme={theme}>{children}</ThemeProvider>;
+      });
+
+      describe(`when focus is on a tab element in a ${orientation} ${direction} tablist`, () => {
+        describe(previousItemKey, () => {
+          it('moves focus to the last tab without activating it if focus is on the first tab', () => {
+            const handleChange = spy();
+            const handleKeyDown = spy((event) => event.defaultPrevented);
+            const { getAllByRole } = render(
+              <Tabs
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                orientation={orientation}
+                value={1}
+              >
+                <Tab />
+                <Tab />
+                <Tab />
+              </Tabs>,
+              { wrapper },
+            );
+            const [firstTab, , lastTab] = getAllByRole('tab');
+            firstTab.focus();
+
+            fireEvent.keyDown(firstTab, { key: previousItemKey });
+
+            expect(lastTab).toHaveFocus();
+            expect(handleChange.callCount).to.equal(0);
+            expect(handleKeyDown.firstCall.returnValue).to.equal(true);
+          });
+
+          it('when `selectionFollowsFocus` moves focus to the last tab while activating it if focus is on the first tab', () => {
+            const handleChange = spy((event, value) => value);
+            const handleKeyDown = spy((event) => event.defaultPrevented);
+            const { getAllByRole } = render(
+              <Tabs
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                orientation={orientation}
+                selectionFollowsFocus
+                value={0}
+              >
+                <Tab />
+                <Tab />
+                <Tab />
+              </Tabs>,
+              { wrapper },
+            );
+            const [firstTab, , lastTab] = getAllByRole('tab');
+            firstTab.focus();
+
+            fireEvent.keyDown(firstTab, { key: previousItemKey });
+
+            expect(lastTab).toHaveFocus();
+            expect(handleChange.callCount).to.equal(1);
+            expect(handleChange.firstCall.returnValue).to.equal(2);
+            expect(handleKeyDown.firstCall.returnValue).to.equal(true);
+          });
+
+          it('moves focus to the previous tab without activating it', () => {
+            const handleChange = spy();
+            const handleKeyDown = spy((event) => event.defaultPrevented);
+            const { getAllByRole } = render(
+              <Tabs
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                orientation={orientation}
+                value={1}
+              >
+                <Tab />
+                <Tab />
+                <Tab />
+              </Tabs>,
+              { wrapper },
+            );
+            const [firstTab, secondTab] = getAllByRole('tab');
+            secondTab.focus();
+
+            fireEvent.keyDown(secondTab, { key: previousItemKey });
+
+            expect(firstTab).toHaveFocus();
+            expect(handleChange.callCount).to.equal(0);
+            expect(handleKeyDown.firstCall.returnValue).to.equal(true);
+          });
+
+          it('when `selectionFollowsFocus` moves focus to the previous tab while activating it', () => {
+            const handleChange = spy((event, value) => value);
+            const handleKeyDown = spy((event) => event.defaultPrevented);
+            const { getAllByRole } = render(
+              <Tabs
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                orientation={orientation}
+                selectionFollowsFocus
+                value={1}
+              >
+                <Tab />
+                <Tab />
+                <Tab />
+              </Tabs>,
+              { wrapper },
+            );
+            const [firstTab, secondTab] = getAllByRole('tab');
+            secondTab.focus();
+
+            fireEvent.keyDown(secondTab, { key: previousItemKey });
+
+            expect(firstTab).toHaveFocus();
+            expect(handleChange.callCount).to.equal(1);
+            expect(handleChange.firstCall.returnValue).to.equal(0);
+            expect(handleKeyDown.firstCall.returnValue).to.equal(true);
+          });
+        });
+
+        describe(nextItemKey, () => {
+          it('moves focus to the first tab without activating it if focus is on the last tab', () => {
+            const handleChange = spy();
+            const handleKeyDown = spy((event) => event.defaultPrevented);
+            const { getAllByRole } = render(
+              <Tabs
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                orientation={orientation}
+                value={1}
+              >
+                <Tab />
+                <Tab />
+                <Tab />
+              </Tabs>,
+              { wrapper },
+            );
+            const [firstTab, , lastTab] = getAllByRole('tab');
+            lastTab.focus();
+
+            fireEvent.keyDown(lastTab, { key: nextItemKey });
+
+            expect(firstTab).toHaveFocus();
+            expect(handleChange.callCount).to.equal(0);
+            expect(handleKeyDown.firstCall.returnValue).to.equal(true);
+          });
+
+          it('when `selectionFollowsFocus` moves focus to the first tab while activating it if focus is on the last tab', () => {
+            const handleChange = spy((event, value) => value);
+            const handleKeyDown = spy((event) => event.defaultPrevented);
+            const { getAllByRole } = render(
+              <Tabs
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                orientation={orientation}
+                selectionFollowsFocus
+                value={2}
+              >
+                <Tab />
+                <Tab />
+                <Tab />
+              </Tabs>,
+              { wrapper },
+            );
+            const [firstTab, , lastTab] = getAllByRole('tab');
+            lastTab.focus();
+
+            fireEvent.keyDown(lastTab, { key: nextItemKey });
+
+            expect(firstTab).toHaveFocus();
+            expect(handleChange.callCount).to.equal(1);
+            expect(handleChange.firstCall.returnValue).to.equal(0);
+            expect(handleKeyDown.firstCall.returnValue).to.equal(true);
+          });
+
+          it('moves focus to the next tab without activating it it', () => {
+            const handleChange = spy();
+            const handleKeyDown = spy((event) => event.defaultPrevented);
+            const { getAllByRole } = render(
+              <Tabs
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                orientation={orientation}
+                value={1}
+              >
+                <Tab />
+                <Tab />
+                <Tab />
+              </Tabs>,
+              { wrapper },
+            );
+            const [, secondTab, lastTab] = getAllByRole('tab');
+            secondTab.focus();
+
+            fireEvent.keyDown(secondTab, { key: nextItemKey });
+
+            expect(lastTab).toHaveFocus();
+            expect(handleChange.callCount).to.equal(0);
+            expect(handleKeyDown.firstCall.returnValue).to.equal(true);
+          });
+
+          it('when `selectionFollowsFocus` moves focus to the next tab while activating it it', () => {
+            const handleChange = spy((event, value) => value);
+            const handleKeyDown = spy((event) => event.defaultPrevented);
+            const { getAllByRole } = render(
+              <Tabs
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                orientation={orientation}
+                selectionFollowsFocus
+                value={1}
+              >
+                <Tab />
+                <Tab />
+                <Tab />
+              </Tabs>,
+              { wrapper },
+            );
+            const [, secondTab, lastTab] = getAllByRole('tab');
+            secondTab.focus();
+
+            fireEvent.keyDown(secondTab, { key: nextItemKey });
+
+            expect(lastTab).toHaveFocus();
+            expect(handleChange.callCount).to.equal(1);
+            expect(handleChange.firstCall.returnValue).to.equal(2);
+            expect(handleKeyDown.firstCall.returnValue).to.equal(true);
+          });
+        });
+      });
+    });
+
+    describe('when focus is on a tab regardless of orientation', () => {
+      describe('Home', () => {
+        it('moves focus to the first tab without activating it', () => {
+          const handleChange = spy();
+          const handleKeyDown = spy((event) => event.defaultPrevented);
+          const { getAllByRole } = render(
+            <Tabs onChange={handleChange} onKeyDown={handleKeyDown} value={1}>
+              <Tab />
+              <Tab />
+              <Tab />
+            </Tabs>,
+          );
+          const [firstTab, , lastTab] = getAllByRole('tab');
+          lastTab.focus();
+
+          fireEvent.keyDown(lastTab, { key: 'Home' });
+
+          expect(firstTab).toHaveFocus();
+          expect(handleChange.callCount).to.equal(0);
+          expect(handleKeyDown.firstCall.returnValue).to.equal(true);
+        });
+
+        it('when `selectionFollowsFocus` moves focus to the first tab without activating it', () => {
+          const handleChange = spy((event, value) => value);
+          const handleKeyDown = spy((event) => event.defaultPrevented);
+          const { getAllByRole } = render(
+            <Tabs onChange={handleChange} onKeyDown={handleKeyDown} selectionFollowsFocus value={2}>
+              <Tab />
+              <Tab />
+              <Tab />
+            </Tabs>,
+          );
+          const [firstTab, , lastTab] = getAllByRole('tab');
+          lastTab.focus();
+
+          fireEvent.keyDown(lastTab, { key: 'Home' });
+
+          expect(firstTab).toHaveFocus();
+          expect(handleChange.callCount).to.equal(1);
+          expect(handleChange.firstCall.returnValue).to.equal(0);
+          expect(handleKeyDown.firstCall.returnValue).to.equal(true);
+        });
+      });
+
+      describe('End', () => {
+        it('moves focus to the last tab without activating it', () => {
+          const handleChange = spy();
+          const handleKeyDown = spy((event) => event.defaultPrevented);
+          const { getAllByRole } = render(
+            <Tabs onChange={handleChange} onKeyDown={handleKeyDown} value={1}>
+              <Tab />
+              <Tab />
+              <Tab />
+            </Tabs>,
+          );
+          const [firstTab, , lastTab] = getAllByRole('tab');
+          firstTab.focus();
+
+          fireEvent.keyDown(firstTab, { key: 'End' });
+
+          expect(lastTab).toHaveFocus();
+          expect(handleChange.callCount).to.equal(0);
+          expect(handleKeyDown.firstCall.returnValue).to.equal(true);
+        });
+
+        it('when `selectionFollowsFocus` moves focus to the last tab without activating it', () => {
+          const handleChange = spy((event, value) => value);
+          const handleKeyDown = spy((event) => event.defaultPrevented);
+          const { getAllByRole } = render(
+            <Tabs onChange={handleChange} onKeyDown={handleKeyDown} selectionFollowsFocus value={0}>
+              <Tab />
+              <Tab />
+              <Tab />
+            </Tabs>,
+          );
+          const [firstTab, , lastTab] = getAllByRole('tab');
+          firstTab.focus();
+
+          fireEvent.keyDown(firstTab, { key: 'End' });
+
+          expect(lastTab).toHaveFocus();
+          expect(handleChange.callCount).to.equal(1);
+          expect(handleChange.firstCall.returnValue).to.equal(2);
+          expect(handleKeyDown.firstCall.returnValue).to.equal(true);
+        });
+      });
     });
   });
 });

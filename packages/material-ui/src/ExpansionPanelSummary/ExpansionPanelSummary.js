@@ -1,23 +1,24 @@
-// @inheritedComponent ButtonBase
-
-import React from 'react';
+/* eslint-disable jsx-a11y/aria-role */
+import * as React from 'react';
 import PropTypes from 'prop-types';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import ButtonBase from '../ButtonBase';
 import IconButton from '../IconButton';
 import withStyles from '../styles/withStyles';
+import ExpansionPanelContext from '../ExpansionPanel/ExpansionPanelContext';
 
-export const styles = theme => {
+export const styles = (theme) => {
   const transition = {
     duration: theme.transitions.duration.shortest,
   };
+
   return {
     /* Styles applied to the root element. */
     root: {
       display: 'flex',
       minHeight: 8 * 6,
       transition: theme.transitions.create(['min-height', 'background-color'], transition),
-      padding: '0 24px 0 24px',
+      padding: theme.spacing(0, 2),
       '&:hover:not($disabled)': {
         cursor: 'pointer',
       },
@@ -25,17 +26,17 @@ export const styles = theme => {
         minHeight: 64,
       },
       '&$focused': {
-        backgroundColor: theme.palette.grey[300],
+        backgroundColor: theme.palette.action.focus,
       },
       '&$disabled': {
-        opacity: 0.38,
+        opacity: theme.palette.action.disabledOpacity,
       },
     },
-    /* Styles applied to the root element if `expanded={true}`. */
+    /* Pseudo-class applied to the root element, children wrapper element and `IconButton` component if `expanded={true}`. */
     expanded: {},
-    /* Styles applied to the root and children wrapper elements when focused. */
+    /* Pseudo-class applied to the root element if `focused={true}`. */
     focused: {},
-    /* Styles applied to the root element if `disabled={true}`. */
+    /* Pseudo-class applied to the root element if `disabled={true}`. */
     disabled: {},
     /* Styles applied to the children wrapper element. */
     content: {
@@ -43,19 +44,13 @@ export const styles = theme => {
       flexGrow: 1,
       transition: theme.transitions.create(['margin'], transition),
       margin: '12px 0',
-      '& > :last-child': {
-        paddingRight: 32,
-      },
       '&$expanded': {
         margin: '20px 0',
       },
     },
     /* Styles applied to the `IconButton` component when `expandIcon` is supplied. */
     expandIcon: {
-      position: 'absolute',
-      top: '50%',
-      right: 8,
-      transform: 'translateY(-50%) rotate(0deg)',
+      transform: 'rotate(0deg)',
       transition: theme.transitions.create('transform', transition),
       '&:hover': {
         // Disable the hover effect for the IconButton,
@@ -64,153 +59,153 @@ export const styles = theme => {
         backgroundColor: 'transparent',
       },
       '&$expanded': {
-        transform: 'translateY(-50%) rotate(180deg)',
+        transform: 'rotate(180deg)',
       },
     },
   };
 };
 
-class ExpansionPanelSummary extends React.Component {
-  state = {
-    focused: false,
+let warnedOnce = false;
+
+/**
+ * ⚠️ The ExpansionPanelSummary component was renamed to AccordionSummary to use a more common naming convention.
+ *
+ * You should use `import { AccordionSummary } from '@material-ui/core'`
+ * or `import AccordionSummary from '@material-ui/core/AccordionSummary'`.
+ */
+const ExpansionPanelSummary = React.forwardRef(function ExpansionPanelSummary(props, ref) {
+  if (process.env.NODE_ENV !== 'production') {
+    if (!warnedOnce) {
+      warnedOnce = true;
+      console.error(
+        [
+          'Material-UI: the ExpansionPanelSummary component was renamed to AccordionSummary to use a more common naming convention.',
+          '',
+          "You should use `import { AccordionSummary } from '@material-ui/core'`",
+          "or `import AccordionSummary from '@material-ui/core/AccordionSummary'`",
+        ].join('\n'),
+      );
+    }
+  }
+  const {
+    children,
+    classes,
+    className,
+    expandIcon,
+    IconButtonProps,
+    onBlur,
+    onClick,
+    onFocusVisible,
+    ...other
+  } = props;
+
+  const [focusedState, setFocusedState] = React.useState(false);
+  const handleFocusVisible = (event) => {
+    setFocusedState(true);
+
+    if (onFocusVisible) {
+      onFocusVisible(event);
+    }
   };
+  const handleBlur = (event) => {
+    setFocusedState(false);
 
-  handleFocusVisible = event => {
-    this.setState({
-      focused: true,
-    });
-
-    if (this.props.onFocusVisible) {
-      this.props.onFocusVisible(event);
+    if (onBlur) {
+      onBlur(event);
     }
   };
 
-  handleBlur = event => {
-    this.setState({
-      focused: false,
-    });
-
-    if (this.props.onBlur) {
-      this.props.onBlur(event);
-    }
-  };
-
-  handleChange = event => {
-    const { onChange, onClick } = this.props;
-    if (onChange) {
-      onChange(event);
+  const { disabled = false, expanded, toggle } = React.useContext(ExpansionPanelContext);
+  const handleChange = (event) => {
+    if (toggle) {
+      toggle(event);
     }
     if (onClick) {
       onClick(event);
     }
   };
 
-  render() {
-    const {
-      children,
-      classes,
-      className,
-      disabled,
-      expanded,
-      expandIcon,
-      IconButtonProps,
-      onBlur,
-      onChange,
-      onClick,
-      onFocusVisible,
-      ...other
-    } = this.props;
-    const { focused } = this.state;
-
-    return (
-      <ButtonBase
-        focusRipple={false}
-        disableRipple
-        disabled={disabled}
-        component="div"
-        aria-expanded={expanded}
-        className={classNames(
-          classes.root,
-          {
-            [classes.disabled]: disabled,
+  return (
+    <ButtonBase
+      focusRipple={false}
+      disableRipple
+      disabled={disabled}
+      component="div"
+      aria-expanded={expanded}
+      className={clsx(
+        classes.root,
+        {
+          [classes.disabled]: disabled,
+          [classes.expanded]: expanded,
+          [classes.focused]: focusedState,
+        },
+        className,
+      )}
+      onFocusVisible={handleFocusVisible}
+      onBlur={handleBlur}
+      onClick={handleChange}
+      ref={ref}
+      {...other}
+    >
+      <div className={clsx(classes.content, { [classes.expanded]: expanded })}>{children}</div>
+      {expandIcon && (
+        <IconButton
+          className={clsx(classes.expandIcon, {
             [classes.expanded]: expanded,
-            [classes.focused]: focused,
-          },
-          className,
-        )}
-        onFocusVisible={this.handleFocusVisible}
-        onBlur={this.handleBlur}
-        onClick={this.handleChange}
-        {...other}
-      >
-        <div className={classNames(classes.content, { [classes.expanded]: expanded })}>
-          {children}
-        </div>
-        {expandIcon && (
-          <IconButton
-            disabled={disabled}
-            className={classNames(classes.expandIcon, {
-              [classes.expanded]: expanded,
-            })}
-            component="div"
-            tabIndex={-1}
-            aria-hidden="true"
-            {...IconButtonProps}
-          >
-            {expandIcon}
-          </IconButton>
-        )}
-      </ButtonBase>
-    );
-  }
-}
+          })}
+          edge="end"
+          component="div"
+          tabIndex={null}
+          role={null}
+          aria-hidden
+          {...IconButtonProps}
+        >
+          {expandIcon}
+        </IconButton>
+      )}
+    </ButtonBase>
+  );
+});
 
 ExpansionPanelSummary.propTypes = {
+  // ----------------------------- Warning --------------------------------
+  // | These PropTypes are generated from the TypeScript type definitions |
+  // |     To update them edit the d.ts file and run "yarn proptypes"     |
+  // ----------------------------------------------------------------------
   /**
    * The content of the expansion panel summary.
    */
   children: PropTypes.node,
   /**
    * Override or extend the styles applied to the component.
-   * See [CSS API](#css-api) below for more details.
+   * See [CSS API](#css) below for more details.
    */
-  classes: PropTypes.object.isRequired,
+  classes: PropTypes.object,
   /**
    * @ignore
    */
   className: PropTypes.string,
   /**
-   * @ignore
-   * If `true`, the summary will be displayed in a disabled state.
-   */
-  disabled: PropTypes.bool,
-  /**
-   * @ignore
-   * If `true`, expands the summary, otherwise collapse it.
-   */
-  expanded: PropTypes.bool,
-  /**
    * The icon to display as the expand indicator.
    */
   expandIcon: PropTypes.node,
   /**
-   * Properties applied to the `TouchRipple` element wrapping the expand icon.
+   * Props applied to the `IconButton` element wrapping the expand icon.
    */
   IconButtonProps: PropTypes.object,
   /**
    * @ignore
    */
-  onChange: PropTypes.func,
+  onBlur: PropTypes.func,
   /**
    * @ignore
    */
   onClick: PropTypes.func,
+  /**
+   * Callback fired when the component is focused with a keyboard.
+   * We trigger a `onFocus` callback too.
+   */
+  onFocusVisible: PropTypes.func,
 };
-
-ExpansionPanelSummary.defaultProps = {
-  disabled: false,
-};
-
-ExpansionPanelSummary.muiName = 'ExpansionPanelSummary';
 
 export default withStyles(styles, { name: 'MuiExpansionPanelSummary' })(ExpansionPanelSummary);

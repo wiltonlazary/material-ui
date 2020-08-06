@@ -1,224 +1,241 @@
-import React from 'react';
-import { spy, stub } from 'sinon';
-import { assert } from 'chai';
-import ReactDOM from 'react-dom';
-import { createShallow, createMount, getClasses, unwrap } from '@material-ui/core/test-utils';
+import * as React from 'react';
+import { spy } from 'sinon';
+import { expect } from 'chai';
+import { getClasses } from '@material-ui/core/test-utils';
+import createMount from 'test/utils/createMount';
+import describeConformance from '../test-utils/describeConformance';
 import Popover from '../Popover';
 import Menu from './Menu';
+import MenuList from '../MenuList';
+import consoleErrorMock from 'test/utils/consoleErrorMock';
+
+const MENU_LIST_HEIGHT = 100;
 
 describe('<Menu />', () => {
-  let shallow;
   let classes;
-  let mount;
+  // StrictModeViolation: uses Popover
+  const mount = createMount({ strict: false });
   const defaultProps = {
     open: false,
+    anchorEl: () => document.createElement('div'),
   };
 
   before(() => {
-    shallow = createShallow({ dive: true });
     classes = getClasses(<Menu {...defaultProps} />);
-    mount = createMount();
   });
 
-  after(() => {
-    mount.cleanUp();
-  });
+  describeConformance(<Menu {...defaultProps} open />, () => ({
+    classes,
+    inheritComponent: Popover,
+    mount,
+    refInstanceof: window.HTMLDivElement,
+    skip: [
+      'componentProp',
+      // react-transition-group issue
+      'reactTestRenderer',
+    ],
+  }));
 
-  it('should render a Popover', () => {
-    const wrapper = shallow(<Menu {...defaultProps} />);
-    assert.strictEqual(wrapper.type(), Popover);
-  });
+  describe('event callbacks', () => {
+    describe('entering', () => {
+      it('should fire callbacks', (done) => {
+        const handleEnter = spy();
+        const handleEntering = spy();
 
-  it('should fire Popover transition event callbacks', () => {
-    const events = ['onEnter', 'onEntering', 'onEntered', 'onExit', 'onExiting', 'onExited'];
+        const wrapper = mount(
+          <Menu
+            onEnter={handleEnter}
+            onEntering={handleEntering}
+            onEntered={() => {
+              expect(handleEnter.callCount).to.equal(1);
+              expect(handleEnter.args[0].length).to.equal(2);
+              expect(handleEntering.callCount).to.equal(1);
+              expect(handleEntering.args[0].length).to.equal(2);
+              done();
+            }}
+            {...defaultProps}
+          />,
+        );
 
-    const handlers = events.reduce((result, n) => {
-      result[n] = spy();
-      return result;
-    }, {});
+        wrapper.setProps({
+          open: true,
+        });
+      });
+    });
 
-    const wrapper = shallow(<Menu {...defaultProps} {...handlers} />);
+    describe('exiting', () => {
+      it('should fire callbacks', (done) => {
+        const handleExit = spy();
+        const handleExiting = spy();
 
-    events.forEach(n => {
-      const event = n.charAt(2).toLowerCase() + n.slice(3);
-      wrapper.simulate(event, { style: {} });
-      assert.strictEqual(handlers[n].callCount, 1, `should have called the ${n} handler`);
+        const wrapper = mount(
+          <Menu
+            onExit={handleExit}
+            onExiting={handleExiting}
+            onExited={() => {
+              expect(handleExit.callCount).to.equal(1);
+              expect(handleExit.args[0].length).to.equal(1);
+              expect(handleExiting.callCount).to.equal(1);
+              expect(handleExiting.args[0].length).to.equal(1);
+              done();
+            }}
+            {...defaultProps}
+            open
+          />,
+        );
+
+        wrapper.setProps({
+          open: false,
+        });
+      });
     });
   });
 
   it('should pass `classes.paper` to the Popover', () => {
-    const wrapper = shallow(<Menu {...defaultProps} />);
-    assert.strictEqual(wrapper.props().PaperProps.classes.root, classes.paper);
+    const wrapper = mount(<Menu {...defaultProps} />);
+    expect(wrapper.find(Popover).props().PaperProps.classes.root).to.equal(classes.paper);
   });
 
   describe('prop: PopoverClasses', () => {
     it('should be able to change the Popover style', () => {
-      const wrapper = shallow(<Menu {...defaultProps} PopoverClasses={{ foo: 'bar' }} />);
-      assert.strictEqual(wrapper.props().classes.foo, 'bar');
+      const wrapper = mount(<Menu {...defaultProps} PopoverClasses={{ paper: 'bar' }} />);
+      expect(wrapper.find(Popover).props().classes.paper).to.equal('bar');
     });
   });
 
   it('should pass the instance function `getContentAnchorEl` to Popover', () => {
-    const wrapper = shallow(<Menu {...defaultProps} />);
-    assert.strictEqual(wrapper.props().getContentAnchorEl, wrapper.instance().getContentAnchorEl);
+    const menuRef = React.createRef();
+    const wrapper = mount(<Menu ref={menuRef} {...defaultProps} />);
+    expect(wrapper.find(Popover).props().getContentAnchorEl != null).to.equal(true);
   });
 
   it('should pass onClose prop to Popover', () => {
     const fn = () => {};
-    const wrapper = shallow(<Menu {...defaultProps} onClose={fn} />);
-    assert.strictEqual(wrapper.props().onClose, fn);
+    const wrapper = mount(<Menu {...defaultProps} onClose={fn} />);
+    expect(wrapper.find(Popover).props().onClose).to.equal(fn);
   });
 
   it('should pass anchorEl prop to Popover', () => {
     const el = document.createElement('div');
-    const wrapper = shallow(<Menu {...defaultProps} anchorEl={el} />);
-    assert.strictEqual(wrapper.props().anchorEl, el);
+    const wrapper = mount(<Menu {...defaultProps} anchorEl={el} />);
+    expect(wrapper.find(Popover).props().anchorEl).to.equal(el);
   });
 
   it('should pass through the `open` prop to Popover', () => {
-    const wrapper = shallow(<Menu {...defaultProps} />);
-    assert.strictEqual(wrapper.props().open, false);
+    const wrapper = mount(<Menu {...defaultProps} />);
+    expect(wrapper.find(Popover).props().open).to.equal(false);
     wrapper.setProps({ open: true });
-    assert.strictEqual(wrapper.props().open, true);
+    expect(wrapper.find(Popover).props().open).to.equal(true);
   });
 
   describe('list node', () => {
-    let wrapper;
-    let list;
-
-    before(() => {
-      wrapper = shallow(<Menu {...defaultProps} className="test-class" data-test="hi" />);
-      list = wrapper.childAt(0);
-    });
-
     it('should render a MenuList inside the Popover', () => {
-      assert.strictEqual(list.name(), 'MenuList');
-    });
-
-    it('should spread other props on the list', () => {
-      assert.strictEqual(wrapper.props()['data-test'], 'hi');
-    });
-
-    it('should have the user classes', () => {
-      assert.strictEqual(wrapper.hasClass('test-class'), true);
+      const wrapper = mount(<Menu {...defaultProps} className="test-class" data-test="hi" open />);
+      expect(wrapper.find(Popover).find(MenuList).exists()).to.equal(true);
     });
   });
 
   it('should open during the initial mount', () => {
     const wrapper = mount(
-      <Menu open classes={classes}>
-        <div />
+      <Menu {...defaultProps} open>
+        <div role="menuitem" tabIndex={-1}>
+          one
+        </div>
       </Menu>,
     );
-    const popover = wrapper.find('Popover');
-    assert.strictEqual(popover.props().open, true);
-    const menuEl = document.querySelector('[data-mui-test="Menu"]');
-    assert.strictEqual(document.activeElement, menuEl && menuEl.firstChild);
+    const popover = wrapper.find(Popover);
+    expect(popover.props().open).to.equal(true);
+    expect(wrapper.find('[role="menuitem"]').props().autoFocus).to.equal(true);
   });
 
-  describe('mount', () => {
-    let wrapper;
-    let instance;
+  it('should not focus list if autoFocus=false', () => {
+    const wrapper = mount(
+      <Menu {...defaultProps} autoFocus={false} open>
+        <div tabIndex={-1} />
+      </Menu>,
+    );
+    const popover = wrapper.find(Popover);
+    expect(popover.props().open).to.equal(true);
+    const menuEl = document.querySelector('[data-mui-test="Menu"]');
+    expect(document.activeElement).to.not.equal(menuEl);
+    expect(false).to.equal(menuEl.contains(document.activeElement));
+  });
 
-    let selectedItemFocusSpy;
-    let menuListSpy;
-    let menuListFocusSpy;
+  it('should call props.onEntering with element if exists', () => {
+    const onEnteringSpy = spy();
+    const wrapper = mount(<Menu {...defaultProps} onEntering={onEnteringSpy} />);
+    const popover = wrapper.find(Popover);
 
-    let elementForHandleEnter;
+    const elementForHandleEnter = { clientHeight: MENU_LIST_HEIGHT };
 
-    const SELECTED_ITEM_KEY = 111111;
-    const MENU_LIST_HEIGHT = 100;
+    popover.props().onEntering(elementForHandleEnter);
+    expect(onEnteringSpy.callCount).to.equal(1);
+    expect(onEnteringSpy.calledWith(elementForHandleEnter)).to.equal(true);
+  });
 
-    let findDOMNodeStub;
+  it('should call props.onEntering, disableAutoFocusItem', () => {
+    const onEnteringSpy = spy();
+    const wrapper = mount(
+      <Menu disableAutoFocusItem {...defaultProps} onEntering={onEnteringSpy} />,
+    );
+    const popover = wrapper.find(Popover);
 
+    const elementForHandleEnter = { clientHeight: MENU_LIST_HEIGHT };
+
+    popover.props().onEntering(elementForHandleEnter);
+    expect(onEnteringSpy.callCount).to.equal(1);
+    expect(onEnteringSpy.calledWith(elementForHandleEnter)).to.equal(true);
+  });
+
+  it('should call onClose on tab', () => {
+    const onCloseSpy = spy();
+    const wrapper = mount(
+      <Menu {...defaultProps} open onClose={onCloseSpy}>
+        <span>hello</span>
+      </Menu>,
+    );
+    wrapper.find('span').simulate('keyDown', {
+      key: 'Tab',
+    });
+    expect(onCloseSpy.callCount).to.equal(1);
+    expect(onCloseSpy.args[0][1]).to.equal('tabKeyDown');
+  });
+
+  it('ignores invalid children', () => {
+    const wrapper = mount(
+      <Menu {...defaultProps} open>
+        {null}
+        <span role="menuitem">hello</span>
+        {/* testing conditional rendering */}
+        {false && <span role="menuitem">hello</span>}
+        {undefined}
+        foo
+      </Menu>,
+    );
+
+    expect(wrapper.find('span[role="menuitem"]')).to.have.length(1);
+  });
+
+  describe('warnings', () => {
     before(() => {
-      const MenuNaked = unwrap(Menu);
-      wrapper = mount(<MenuNaked {...defaultProps} theme={{}} classes={classes} />);
-      instance = wrapper.instance();
-
-      selectedItemFocusSpy = spy();
-      menuListFocusSpy = spy();
-      menuListSpy = {};
-      menuListSpy.clientHeight = MENU_LIST_HEIGHT;
-      menuListSpy.style = {};
-      menuListSpy.firstChild = { focus: menuListFocusSpy };
-
-      findDOMNodeStub = stub(ReactDOM, 'findDOMNode').callsFake(arg => {
-        if (arg === SELECTED_ITEM_KEY) {
-          return { focus: selectedItemFocusSpy };
-        }
-        return menuListSpy;
-      });
-
-      elementForHandleEnter = { clientHeight: MENU_LIST_HEIGHT };
+      consoleErrorMock.spy();
     });
 
     after(() => {
-      findDOMNodeStub.restore();
+      consoleErrorMock.reset();
     });
 
-    beforeEach(() => {
-      menuListFocusSpy.resetHistory();
-      selectedItemFocusSpy.resetHistory();
-    });
+    it('warns a Fragment is passed as a child', () => {
+      mount(
+        <Menu anchorEl={document.createElement('div')} open>
+          <React.Fragment />
+        </Menu>,
+      );
 
-    it('should call props.onEntering with element if exists', () => {
-      const onEnteringSpy = spy();
-      wrapper.setProps({ onEntering: onEnteringSpy });
-      instance.handleEntering(elementForHandleEnter);
-      assert.strictEqual(onEnteringSpy.callCount, 1);
-      assert.strictEqual(onEnteringSpy.calledWith(elementForHandleEnter), true);
-    });
-
-    it('should call menuList focus when no menuList', () => {
-      delete instance.menuListRef;
-      instance.handleEntering(elementForHandleEnter);
-      assert.strictEqual(selectedItemFocusSpy.callCount, 0);
-      assert.strictEqual(menuListFocusSpy.callCount, 1);
-    });
-
-    it('should call menuList focus when menuList but no menuList.selectedItemRef ', () => {
-      instance.menuListRef = {};
-      delete instance.menuListRef.selectedItemRef;
-      instance.handleEntering(elementForHandleEnter);
-      assert.strictEqual(selectedItemFocusSpy.callCount, 0);
-      assert.strictEqual(menuListFocusSpy.callCount, 1);
-    });
-
-    describe('menuList.selectedItemRef exists', () => {
-      before(() => {
-        instance.menuListRef = {};
-        instance.menuListRef.selectedItemRef = SELECTED_ITEM_KEY;
-      });
-
-      it('should call selectedItem focus when there is a menuList.selectedItemRef', () => {
-        instance.handleEntering(elementForHandleEnter);
-        assert.strictEqual(selectedItemFocusSpy.callCount, 1);
-        assert.strictEqual(menuListFocusSpy.callCount, 0);
-      });
-
-      it('should not set style on list when element.clientHeight > list.clientHeight', () => {
-        elementForHandleEnter.clientHeight = MENU_LIST_HEIGHT + 1;
-        instance.handleEntering(elementForHandleEnter);
-        assert.strictEqual(menuListSpy.style.paddingRight, undefined);
-        assert.strictEqual(menuListSpy.style.width, undefined);
-      });
-
-      it('should not set style on list when element.clientHeight == list.clientHeight', () => {
-        elementForHandleEnter.clientHeight = MENU_LIST_HEIGHT;
-        instance.handleEntering(elementForHandleEnter);
-        assert.strictEqual(menuListSpy.style.paddingRight, undefined);
-        assert.strictEqual(menuListSpy.style.width, undefined);
-      });
-
-      it('should not set style on list when element.clientHeight < list.clientHeight', () => {
-        assert.strictEqual(menuListSpy.style.paddingRight, undefined);
-        assert.strictEqual(menuListSpy.style.width, undefined);
-        elementForHandleEnter.clientHeight = MENU_LIST_HEIGHT - 1;
-        instance.handleEntering(elementForHandleEnter);
-        assert.notStrictEqual(menuListSpy.style.paddingRight, undefined);
-        assert.notStrictEqual(menuListSpy.style.width, undefined);
-      });
+      expect(consoleErrorMock.callCount()).to.equal(2);
+      expect(consoleErrorMock.messages()[0]).to.include(
+        "Material-UI: The Menu component doesn't accept a Fragment as a child.",
+      );
     });
   });
 });

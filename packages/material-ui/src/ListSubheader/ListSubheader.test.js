@@ -1,9 +1,12 @@
-import React from 'react';
-import { assert } from 'chai';
+import * as React from 'react';
+import { expect } from 'chai';
 import { createShallow, getClasses } from '@material-ui/core/test-utils';
+import createMount from 'test/utils/createMount';
+import describeConformance from '../test-utils/describeConformance';
 import ListSubheader from './ListSubheader';
 
 describe('<ListSubheader />', () => {
+  const mount = createMount();
   let shallow;
   let classes;
 
@@ -12,54 +15,46 @@ describe('<ListSubheader />', () => {
     classes = getClasses(<ListSubheader />);
   });
 
-  it('should render a li', () => {
-    const wrapper = shallow(<ListSubheader />);
-    assert.strictEqual(wrapper.name(), 'li');
-  });
-
-  it('should render with the user and root classes', () => {
-    const wrapper = shallow(<ListSubheader className="woofListSubheader" />);
-    assert.strictEqual(wrapper.hasClass('woofListSubheader'), true);
-    assert.strictEqual(wrapper.hasClass(classes.root), true);
-  });
+  describeConformance(<ListSubheader />, () => ({
+    classes,
+    inheritComponent: 'li',
+    mount,
+    refInstanceof: window.HTMLLIElement,
+  }));
 
   it('should display primary color', () => {
     const wrapper = shallow(<ListSubheader color="primary" />);
-    assert.strictEqual(
-      wrapper.hasClass(classes.colorPrimary),
-      true,
-      'should have the primary class',
-    );
-    assert.strictEqual(wrapper.hasClass(classes.root), true);
+    expect(wrapper.hasClass(classes.colorPrimary)).to.equal(true);
+    expect(wrapper.hasClass(classes.root)).to.equal(true);
   });
 
   it('should display inset class', () => {
     const wrapper = shallow(<ListSubheader inset />);
-    assert.strictEqual(wrapper.hasClass(classes.inset), true);
-    assert.strictEqual(wrapper.hasClass(classes.root), true);
+    expect(wrapper.hasClass(classes.inset)).to.equal(true);
+    expect(wrapper.hasClass(classes.root)).to.equal(true);
   });
 
   describe('prop: disableSticky', () => {
     it('should display sticky class', () => {
       const wrapper = shallow(<ListSubheader />);
-      assert.strictEqual(wrapper.hasClass(classes.sticky), true);
+      expect(wrapper.hasClass(classes.sticky)).to.equal(true);
     });
 
     it('should not display sticky class', () => {
       const wrapper = shallow(<ListSubheader disableSticky />);
-      assert.strictEqual(wrapper.hasClass(classes.sticky), false);
+      expect(wrapper.hasClass(classes.sticky)).to.equal(false);
     });
   });
 
   describe('prop: disableGutters', () => {
     it('should not display gutters class', () => {
       const wrapper = shallow(<ListSubheader disableGutters />);
-      assert.strictEqual(wrapper.hasClass(classes.gutters), false);
+      expect(wrapper.hasClass(classes.gutters)).to.equal(false);
     });
 
     it('should display gutters class', () => {
       const wrapper = shallow(<ListSubheader />);
-      assert.strictEqual(wrapper.hasClass(classes.gutters), true);
+      expect(wrapper.hasClass(classes.gutters)).to.equal(true);
     });
   });
 });

@@ -1,5 +1,4 @@
-function deprecatedPropType(validator, reason) {
-  /* istanbul ignore if */
+export default function deprecatedPropType(validator, reason) {
   if (process.env.NODE_ENV === 'production') {
     return () => null;
   }
@@ -18,5 +17,3 @@ function deprecatedPropType(validator, reason) {
     return null;
   };
 }
-
-export default deprecatedPropType;

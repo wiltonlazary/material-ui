@@ -1,14 +1,12 @@
-// @inheritedComponent Paper
-
-import React from 'react';
+import * as React from 'react';
 import PropTypes from 'prop-types';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import withStyles from '../styles/withStyles';
 import Paper from '../Paper';
-import { capitalize } from '../utils/helpers';
+import capitalize from '../utils/capitalize';
 import LinearProgress from '../LinearProgress';
 
-export const styles = theme => ({
+export const styles = (theme) => ({
   /* Styles applied to the root element. */
   root: {
     display: 'flex',
@@ -59,40 +57,48 @@ export const styles = theme => ({
   },
 });
 
-function MobileStepper(props) {
+const MobileStepper = React.forwardRef(function MobileStepper(props, ref) {
   const {
-    activeStep,
+    activeStep = 0,
     backButton,
     classes,
-    className: classNameProp,
+    className,
     LinearProgressProps,
     nextButton,
-    position,
+    position = 'bottom',
     steps,
-    variant,
+    variant = 'dots',
     ...other
   } = props;
 
-  const className = classNames(
-    classes.root,
-    classes[`position${capitalize(position)}`],
-    classNameProp,
-  );
-
   return (
-    <Paper square elevation={0} className={className} {...other}>
+    <Paper
+      square
+      elevation={0}
+      className={clsx(classes.root, classes[`position${capitalize(position)}`], className)}
+      ref={ref}
+      {...other}
+    >
       {backButton}
+      {variant === 'text' && (
+        <React.Fragment>
+          {activeStep + 1} / {steps}
+        </React.Fragment>
+      )}
+
       {variant === 'dots' && (
         <div className={classes.dots}>
-          {[...new Array(steps)].map((_, step) => {
-            const dotClassName = classNames(classes.dot, {
-              [classes.dotActive]: step === activeStep,
-            });
-            // eslint-disable-next-line react/no-array-index-key
-            return <div key={step} className={dotClassName} />;
-          })}
+          {[...new Array(steps)].map((_, index) => (
+            <div
+              key={index}
+              className={clsx(classes.dot, {
+                [classes.dotActive]: index === activeStep,
+              })}
+            />
+          ))}
         </div>
       )}
+
       {variant === 'progress' && (
         <LinearProgress
           className={classes.progress}
@@ -101,42 +107,47 @@ function MobileStepper(props) {
           {...LinearProgressProps}
         />
       )}
+
       {nextButton}
     </Paper>
   );
-}
+});
 
 MobileStepper.propTypes = {
+  // ----------------------------- Warning --------------------------------
+  // | These PropTypes are generated from the TypeScript type definitions |
+  // |     To update them edit the d.ts file and run "yarn proptypes"     |
+  // ----------------------------------------------------------------------
   /**
    * Set the active step (zero based index).
    * Defines which dot is highlighted when the variant is 'dots'.
    */
   activeStep: PropTypes.number,
   /**
-   * A back button element. For instance, it can be be a `Button` or a `IconButton`.
+   * A back button element. For instance, it can be a `Button` or an `IconButton`.
    */
   backButton: PropTypes.node,
   /**
    * Override or extend the styles applied to the component.
-   * See [CSS API](#css-api) below for more details.
+   * See [CSS API](#css) below for more details.
    */
-  classes: PropTypes.object.isRequired,
+  classes: PropTypes.object,
   /**
    * @ignore
    */
   className: PropTypes.string,
   /**
-   * Properties applied to the `LinearProgress` element.
+   * Props applied to the `LinearProgress` element.
    */
   LinearProgressProps: PropTypes.object,
   /**
-   * A next button element. For instance, it can be be a `Button` or a `IconButton`.
+   * A next button element. For instance, it can be a `Button` or an `IconButton`.
    */
   nextButton: PropTypes.node,
   /**
    * Set the positioning type.
    */
-  position: PropTypes.oneOf(['bottom', 'top', 'static']),
+  position: PropTypes.oneOf(['bottom', 'static', 'top']),
   /**
    * The total steps.
    */
@@ -144,13 +155,7 @@ MobileStepper.propTypes = {
   /**
    * The variant to use.
    */
-  variant: PropTypes.oneOf(['text', 'dots', 'progress']),
-};
-
-MobileStepper.defaultProps = {
-  activeStep: 0,
-  position: 'bottom',
-  variant: 'dots',
+  variant: PropTypes.oneOf(['dots', 'progress', 'text']),
 };
 
 export default withStyles(styles, { name: 'MuiMobileStepper' })(MobileStepper);

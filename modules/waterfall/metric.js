@@ -1,16 +1,15 @@
 // The API is inspired by console.time
 // The implementation is isomorphic.
-import warning from 'warning';
 
 const times = new Map();
 
 const implementations = {
   mark: {
-    start: name => {
+    start: (name) => {
       times.set(name, performance.now());
       performance.mark(`metric_${name}_start`);
     },
-    end: name => {
+    end: (name) => {
       const endMark = `metric_${name}_end`;
       performance.mark(endMark);
       const startMark = `metric_${name}_start`;
@@ -20,21 +19,21 @@ const implementations = {
     },
   },
   now: {
-    start: name => {
+    start: (name) => {
       times.set(name, performance.now());
     },
-    end: name => {
+    end: (name) => {
       const time = times.get(name);
       const duration = performance.now() - time;
       return duration;
     },
   },
   hrtime: {
-    start: name => {
+    start: (name) => {
       // https://nodejs.org/api/process.html#process_process_hrtime_time
       times.set(name, process.hrtime());
     },
-    end: name => {
+    end: (name) => {
       const time = times.get(name);
       const durations = process.hrtime(time);
       const duration = durations[0] / 1e3 + durations[1] / 1e6;
@@ -68,7 +67,11 @@ class Metric {
    * Call to begin a measurement.
    */
   static start(name) {
-    warning(!times.get(name), 'Recording already started');
+    if (process.env.NODE_ENV !== 'production') {
+      if (times.get(name)) {
+        console.error('Recording already started');
+      }
+    }
     getImplementation().start(name);
   }
 

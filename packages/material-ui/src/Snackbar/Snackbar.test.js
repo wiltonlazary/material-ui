@@ -1,46 +1,44 @@
-import React from 'react';
-import { assert } from 'chai';
+import * as React from 'react';
+import { expect } from 'chai';
 import { spy, useFakeTimers } from 'sinon';
-import { createShallow, createMount, getClasses } from '@material-ui/core/test-utils';
+import { getClasses } from '@material-ui/core/test-utils';
+import createMount from 'test/utils/createMount';
+import { createClientRender, fireEvent } from 'test/utils/createClientRender';
+import describeConformance from '../test-utils/describeConformance';
 import Snackbar from './Snackbar';
-import Slide from '../Slide';
 
 describe('<Snackbar />', () => {
-  let shallow;
-  let mount;
+  // StrictModeViolation: uses Slide
+  const mount = createMount({ strict: false });
   let classes;
+  const render = createClientRender({ strict: false });
 
   before(() => {
-    shallow = createShallow({ dive: true });
     classes = getClasses(<Snackbar open />);
-    mount = createMount();
   });
 
-  after(() => {
-    mount.cleanUp();
-  });
-
-  it('should render a ClickAwayListener with classes', () => {
-    const wrapper = shallow(<Snackbar open message="message" />);
-    assert.strictEqual(wrapper.name(), 'ClickAwayListener');
-    assert.strictEqual(
-      wrapper.childAt(0).hasClass(classes.root),
-      true,
-      'should have the root class',
-    );
-    assert.strictEqual(wrapper.find(Slide).length, 1, 'should use a Slide by default');
-  });
+  describeConformance(<Snackbar open message="message" />, () => ({
+    classes,
+    inheritComponent: 'div',
+    mount,
+    refInstanceof: window.HTMLDivElement,
+    skip: [
+      'componentProp',
+      // react-transition-group issue
+      'reactTestRenderer',
+    ],
+  }));
 
   describe('prop: onClose', () => {
     it('should be call when clicking away', () => {
       const handleClose = spy();
-      mount(<Snackbar open onClose={handleClose} message="message" />);
+      render(<Snackbar open onClose={handleClose} message="message" />);
 
-      const event = new window.Event('mouseup', { view: window, bubbles: true, cancelable: true });
-      window.document.body.dispatchEvent(event);
+      const event = new window.Event('click', { view: window, bubbles: true, cancelable: true });
+      document.body.dispatchEvent(event);
 
-      assert.strictEqual(handleClose.callCount, 1);
-      assert.deepEqual(handleClose.args[0], [event, 'clickaway']);
+      expect(handleClose.callCount).to.equal(1);
+      expect(handleClose.args[0]).to.deep.equal([event, 'clickaway']);
     });
   });
 
@@ -57,21 +55,21 @@ describe('<Snackbar />', () => {
 
     it('should support synchronous onExited callback', () => {
       const messageCount = 2;
-      let wrapper;
+      let view;
       const handleCloseSpy = spy();
       const handleClose = () => {
-        wrapper.setProps({ open: false });
+        view.setProps({ open: false });
         handleCloseSpy();
       };
       const handleExitedSpy = spy();
       const handleExited = () => {
         handleExitedSpy();
         if (handleExitedSpy.callCount < messageCount) {
-          wrapper.setProps({ open: true });
+          view.setProps({ open: true });
         }
       };
       const duration = 250;
-      wrapper = mount(
+      view = render(
         <Snackbar
           open={false}
           onClose={handleClose}
@@ -81,21 +79,21 @@ describe('<Snackbar />', () => {
           transitionDuration={duration / 2}
         />,
       );
-      assert.strictEqual(handleCloseSpy.callCount, 0);
-      assert.strictEqual(handleExitedSpy.callCount, 0);
-      wrapper.setProps({ open: true });
+      expect(handleCloseSpy.callCount).to.equal(0);
+      expect(handleExitedSpy.callCount).to.equal(0);
+      view.setProps({ open: true });
       clock.tick(duration);
-      assert.strictEqual(handleCloseSpy.callCount, 1);
-      assert.strictEqual(handleExitedSpy.callCount, 0);
+      expect(handleCloseSpy.callCount).to.equal(1);
+      expect(handleExitedSpy.callCount).to.equal(0);
       clock.tick(duration / 2);
-      assert.strictEqual(handleCloseSpy.callCount, 1);
-      assert.strictEqual(handleExitedSpy.callCount, 1);
+      expect(handleCloseSpy.callCount).to.equal(1);
+      expect(handleExitedSpy.callCount).to.equal(1);
       clock.tick(duration);
-      assert.strictEqual(handleCloseSpy.callCount, messageCount);
-      assert.strictEqual(handleExitedSpy.callCount, 1);
+      expect(handleCloseSpy.callCount).to.equal(messageCount);
+      expect(handleExitedSpy.callCount).to.equal(1);
       clock.tick(duration / 2);
-      assert.strictEqual(handleCloseSpy.callCount, messageCount);
-      assert.strictEqual(handleExitedSpy.callCount, messageCount);
+      expect(handleCloseSpy.callCount).to.equal(messageCount);
+      expect(handleExitedSpy.callCount).to.equal(messageCount);
     });
   });
 
@@ -113,7 +111,7 @@ describe('<Snackbar />', () => {
     it('should call onClose when the timer is done', () => {
       const handleClose = spy();
       const autoHideDuration = 2e3;
-      const wrapper = mount(
+      const { setProps } = render(
         <Snackbar
           open={false}
           onClose={handleClose}
@@ -122,17 +120,38 @@ describe('<Snackbar />', () => {
         />,
       );
 
-      wrapper.setProps({ open: true });
-      assert.strictEqual(handleClose.callCount, 0);
+      setProps({ open: true });
+      expect(handleClose.callCount).to.equal(0);
       clock.tick(autoHideDuration);
-      assert.strictEqual(handleClose.callCount, 1);
-      assert.deepEqual(handleClose.args[0], [null, 'timeout']);
+      expect(handleClose.callCount).to.equal(1);
+      expect(handleClose.args[0]).to.deep.equal([null, 'timeout']);
+    });
+
+    it('calls onClose at timeout even if the prop changes', () => {
+      const handleClose1 = spy();
+      const handleClose2 = spy();
+      const autoHideDuration = 2e3;
+      const { setProps } = render(
+        <Snackbar
+          open={false}
+          onClose={handleClose1}
+          message="message"
+          autoHideDuration={autoHideDuration}
+        />,
+      );
+
+      setProps({ open: true });
+      clock.tick(autoHideDuration / 2);
+      setProps({ open: true, onClose: handleClose2 });
+      clock.tick(autoHideDuration / 2);
+      expect(handleClose1.callCount).to.equal(0);
+      expect(handleClose2.callCount).to.equal(1);
     });
 
     it('should not call onClose when the autoHideDuration is reset', () => {
       const handleClose = spy();
       const autoHideDuration = 2e3;
-      const wrapper = mount(
+      const { setProps } = render(
         <Snackbar
           open={false}
           onClose={handleClose}
@@ -141,12 +160,12 @@ describe('<Snackbar />', () => {
         />,
       );
 
-      wrapper.setProps({ open: true });
-      assert.strictEqual(handleClose.callCount, 0);
+      setProps({ open: true });
+      expect(handleClose.callCount).to.equal(0);
       clock.tick(autoHideDuration / 2);
-      wrapper.setProps({ autoHideDuration: undefined });
+      setProps({ autoHideDuration: undefined });
       clock.tick(autoHideDuration / 2);
-      assert.strictEqual(handleClose.callCount, 0);
+      expect(handleClose.callCount).to.equal(0);
     });
 
     it('should be able to interrupt the timer', () => {
@@ -154,7 +173,7 @@ describe('<Snackbar />', () => {
       const handleMouseLeave = spy();
       const handleClose = spy();
       const autoHideDuration = 2e3;
-      const wrapper = mount(
+      const { container } = render(
         <Snackbar
           open
           onMouseEnter={handleMouseEnter}
@@ -165,43 +184,45 @@ describe('<Snackbar />', () => {
         />,
       );
 
-      assert.strictEqual(handleClose.callCount, 0);
+      expect(handleClose.callCount).to.equal(0);
       clock.tick(autoHideDuration / 2);
-      wrapper.simulate('mouseEnter');
-      assert.strictEqual(handleMouseEnter.callCount, 1, 'should trigger mouse enter callback');
+      fireEvent.mouseEnter(container.querySelector('div'));
+      expect(handleMouseEnter.callCount).to.equal(1);
       clock.tick(autoHideDuration / 2);
-      wrapper.simulate('mouseLeave');
-      assert.strictEqual(handleMouseLeave.callCount, 1, 'should trigger mouse leave callback');
-      assert.strictEqual(handleClose.callCount, 0);
+      fireEvent.mouseLeave(container.querySelector('div'));
+      expect(handleMouseLeave.callCount).to.equal(1);
+      expect(handleClose.callCount).to.equal(0);
       clock.tick(2e3);
-      assert.strictEqual(handleClose.callCount, 1);
-      assert.deepEqual(handleClose.args[0], [null, 'timeout']);
+      expect(handleClose.callCount).to.equal(1);
+      expect(handleClose.args[0]).to.deep.equal([null, 'timeout']);
     });
 
     it('should not call onClose if autoHideDuration is undefined', () => {
       const handleClose = spy();
       const autoHideDuration = 2e3;
-      mount(<Snackbar open onClose={handleClose} message="message" autoHideDuration={undefined} />);
+      render(
+        <Snackbar open onClose={handleClose} message="message" autoHideDuration={undefined} />,
+      );
 
-      assert.strictEqual(handleClose.callCount, 0);
+      expect(handleClose.callCount).to.equal(0);
       clock.tick(autoHideDuration);
-      assert.strictEqual(handleClose.callCount, 0);
+      expect(handleClose.callCount).to.equal(0);
     });
 
     it('should not call onClose if autoHideDuration is null', () => {
       const handleClose = spy();
       const autoHideDuration = 2e3;
-      mount(<Snackbar open onClose={handleClose} message="message" autoHideDuration={null} />);
+      render(<Snackbar open onClose={handleClose} message="message" autoHideDuration={null} />);
 
-      assert.strictEqual(handleClose.callCount, 0);
+      expect(handleClose.callCount).to.equal(0);
       clock.tick(autoHideDuration);
-      assert.strictEqual(handleClose.callCount, 0);
+      expect(handleClose.callCount).to.equal(0);
     });
 
     it('should not call onClose when closed', () => {
       const handleClose = spy();
       const autoHideDuration = 2e3;
-      const wrapper = mount(
+      const { setProps } = render(
         <Snackbar
           open
           onClose={handleClose}
@@ -210,11 +231,11 @@ describe('<Snackbar />', () => {
         />,
       );
 
-      assert.strictEqual(handleClose.callCount, 0);
+      expect(handleClose.callCount).to.equal(0);
       clock.tick(autoHideDuration / 2);
-      wrapper.setProps({ open: false });
+      setProps({ open: false });
       clock.tick(autoHideDuration / 2);
-      assert.strictEqual(handleClose.callCount, 0);
+      expect(handleClose.callCount).to.equal(0);
     });
   });
 
@@ -233,7 +254,7 @@ describe('<Snackbar />', () => {
       const handleClose = spy();
       const autoHideDuration = 2e3;
       const resumeHideDuration = 3e3;
-      const wrapper = mount(
+      const { container } = render(
         <Snackbar
           open
           onClose={handleClose}
@@ -242,21 +263,21 @@ describe('<Snackbar />', () => {
           resumeHideDuration={resumeHideDuration}
         />,
       );
-      assert.strictEqual(handleClose.callCount, 0);
+      expect(handleClose.callCount).to.equal(0);
       clock.tick(autoHideDuration / 2);
-      wrapper.simulate('mouseEnter');
+      fireEvent.mouseEnter(container.querySelector('div'));
       clock.tick(autoHideDuration / 2);
-      wrapper.simulate('mouseLeave');
-      assert.strictEqual(handleClose.callCount, 0);
+      fireEvent.mouseLeave(container.querySelector('div'));
+      expect(handleClose.callCount).to.equal(0);
       clock.tick(2e3);
-      assert.strictEqual(handleClose.callCount, 0);
+      expect(handleClose.callCount).to.equal(0);
     });
 
     it('should call onClose when timer done after user interaction', () => {
       const handleClose = spy();
       const autoHideDuration = 2e3;
       const resumeHideDuration = 3e3;
-      const wrapper = mount(
+      const { container } = render(
         <Snackbar
           open
           onClose={handleClose}
@@ -265,22 +286,22 @@ describe('<Snackbar />', () => {
           resumeHideDuration={resumeHideDuration}
         />,
       );
-      assert.strictEqual(handleClose.callCount, 0);
+      expect(handleClose.callCount).to.equal(0);
       clock.tick(autoHideDuration / 2);
-      wrapper.simulate('mouseEnter');
+      fireEvent.mouseEnter(container.querySelector('div'));
       clock.tick(autoHideDuration / 2);
-      wrapper.simulate('mouseLeave');
-      assert.strictEqual(handleClose.callCount, 0);
+      fireEvent.mouseLeave(container.querySelector('div'));
+      expect(handleClose.callCount).to.equal(0);
       clock.tick(resumeHideDuration);
-      assert.strictEqual(handleClose.callCount, 1);
-      assert.deepEqual(handleClose.args[0], [null, 'timeout']);
+      expect(handleClose.callCount).to.equal(1);
+      expect(handleClose.args[0]).to.deep.equal([null, 'timeout']);
     });
 
     it('should call onClose immediately after user interaction when 0', () => {
       const handleClose = spy();
       const autoHideDuration = 6e3;
       const resumeHideDuration = 0;
-      const wrapper = mount(
+      const { setProps, container } = render(
         <Snackbar
           open
           onClose={handleClose}
@@ -289,14 +310,14 @@ describe('<Snackbar />', () => {
           resumeHideDuration={resumeHideDuration}
         />,
       );
-      wrapper.setProps({ open: true });
-      assert.strictEqual(handleClose.callCount, 0);
-      wrapper.simulate('mouseEnter');
+      setProps({ open: true });
+      expect(handleClose.callCount).to.equal(0);
+      fireEvent.mouseEnter(container.querySelector('div'));
       clock.tick(100);
-      wrapper.simulate('mouseLeave');
+      fireEvent.mouseLeave(container.querySelector('div'));
       clock.tick(resumeHideDuration);
-      assert.strictEqual(handleClose.callCount, 1);
-      assert.deepEqual(handleClose.args[0], [null, 'timeout']);
+      expect(handleClose.callCount).to.equal(1);
+      expect(handleClose.args[0]).to.deep.equal([null, 'timeout']);
     });
   });
 
@@ -314,7 +335,7 @@ describe('<Snackbar />', () => {
     it('should pause auto hide when not disabled and window lost focus', () => {
       const handleClose = spy();
       const autoHideDuration = 2e3;
-      mount(
+      render(
         <Snackbar
           open
           onClose={handleClose}
@@ -327,23 +348,23 @@ describe('<Snackbar />', () => {
       const bEvent = new window.Event('blur', { view: window, bubbles: false, cancelable: false });
       window.dispatchEvent(bEvent);
 
-      assert.strictEqual(handleClose.callCount, 0);
+      expect(handleClose.callCount).to.equal(0);
       clock.tick(autoHideDuration);
-      assert.strictEqual(handleClose.callCount, 0);
+      expect(handleClose.callCount).to.equal(0);
 
       const fEvent = new window.Event('focus', { view: window, bubbles: false, cancelable: false });
       window.dispatchEvent(fEvent);
 
-      assert.strictEqual(handleClose.callCount, 0);
+      expect(handleClose.callCount).to.equal(0);
       clock.tick(autoHideDuration);
-      assert.strictEqual(handleClose.callCount, 1);
-      assert.deepEqual(handleClose.args[0], [null, 'timeout']);
+      expect(handleClose.callCount).to.equal(1);
+      expect(handleClose.args[0]).to.deep.equal([null, 'timeout']);
     });
 
     it('should not pause auto hide when disabled and window lost focus', () => {
       const handleClose = spy();
       const autoHideDuration = 2e3;
-      mount(
+      render(
         <Snackbar
           open
           onClose={handleClose}
@@ -356,44 +377,52 @@ describe('<Snackbar />', () => {
       const event = new window.Event('blur', { view: window, bubbles: false, cancelable: false });
       window.dispatchEvent(event);
 
-      assert.strictEqual(handleClose.callCount, 0);
+      expect(handleClose.callCount).to.equal(0);
       clock.tick(autoHideDuration);
-      assert.strictEqual(handleClose.callCount, 1);
-      assert.deepEqual(handleClose.args[0], [null, 'timeout']);
+      expect(handleClose.callCount).to.equal(1);
+      expect(handleClose.args[0]).to.deep.equal([null, 'timeout']);
     });
   });
 
   describe('prop: open', () => {
     it('should not render anything when closed', () => {
-      const wrapper = shallow(<Snackbar open={false} message="" />);
-      assert.strictEqual(wrapper.type(), null);
+      const { container } = render(<Snackbar open={false} message="Hello, World!" />);
+      expect(container).to.have.text('');
     });
 
     it('should be able show it after mounted', () => {
-      const wrapper = shallow(<Snackbar open={false} message="" />);
-      assert.strictEqual(wrapper.type(), null);
-      wrapper.setProps({ open: true });
-      assert.strictEqual(wrapper.find(Slide).length, 1, 'should use a Slide by default');
+      const { container, setProps } = render(<Snackbar open={false} message="Hello, World!" />);
+      expect(container).to.have.text('');
+      setProps({ open: true });
+      expect(container).to.have.text('Hello, World!');
     });
   });
 
   describe('prop: children', () => {
     it('should render the children', () => {
-      const children = <div />;
-      const wrapper = shallow(<Snackbar open>{children}</Snackbar>);
-      assert.strictEqual(wrapper.contains(children), true);
+      const nodeRef = React.createRef();
+      const children = <div ref={nodeRef} />;
+      const { container } = render(<Snackbar open>{children}</Snackbar>);
+      expect(container).to.contain(nodeRef.current);
     });
   });
 
   describe('prop: TransitionComponent', () => {
-    it('should render a Snackbar with TransitionComponent', () => {
-      const Transition = props => <div className="cloned-element-class" {...props} />;
-      const wrapper = shallow(<Snackbar open TransitionComponent={Transition} />);
-      assert.strictEqual(
-        wrapper.find(Transition).length,
-        1,
-        'should include element given in TransitionComponent',
+    it('should use a Grow by default', () => {
+      const childRef = React.createRef();
+      render(
+        <Snackbar open message="message">
+          <div ref={childRef} />
+        </Snackbar>,
       );
+      expect(childRef.current.style.transform).to.contain('scale');
+    });
+
+    it('accepts a different component that handles the transition', () => {
+      const transitionRef = React.createRef();
+      const Transition = () => <div className="cloned-element-class" ref={transitionRef} />;
+      const { container } = render(<Snackbar open TransitionComponent={Transition} />);
+      expect(container).to.contain(transitionRef.current);
     });
   });
 });

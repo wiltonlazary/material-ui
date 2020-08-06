@@ -1,48 +1,37 @@
-import React from 'react';
-import { assert } from 'chai';
-import CheckCircle from '../internal/svg-icons/CheckCircle';
-import Warning from '../internal/svg-icons/Warning';
-import { createShallow, createMount } from '@material-ui/core/test-utils';
+import * as React from 'react';
+import { expect } from 'chai';
+import createMount from 'test/utils/createMount';
+import describeConformance from '@material-ui/core/test-utils/describeConformance';
+import { createClientRender } from 'test/utils/createClientRender';
 import StepIcon from './StepIcon';
-import SvgIcon from '../SvgIcon';
 
 describe('<StepIcon />', () => {
-  let shallow;
-  let mount;
+  const render = createClientRender();
+  const mount = createMount();
 
-  before(() => {
-    shallow = createShallow({ dive: true });
-    mount = createMount();
-  });
-
-  after(() => {
-    mount.cleanUp();
-  });
+  describeConformance(<StepIcon icon={1} />, () => ({
+    mount,
+    only: ['refForwarding'],
+    refInstanceof: window.SVGSVGElement,
+  }));
 
   it('renders <CheckCircle> when completed', () => {
-    const wrapper = mount(<StepIcon icon={1} completed />);
-    const checkCircle = wrapper.find(CheckCircle);
-    assert.strictEqual(checkCircle.length, 1, 'should have an <CheckCircle />');
+    const { container } = render(<StepIcon icon={1} completed />);
+    expect(container.querySelectorAll('svg[data-mui-test="CheckCircleIcon"]')).to.have.length(1);
   });
 
   it('renders <Warning> when error occurred', () => {
-    const wrapper = mount(<StepIcon icon={1} error />);
-    const warning = wrapper.find(Warning);
-    assert.strictEqual(warning.length, 1, 'should have an <Warning />');
-  });
-
-  it('renders a <SvgIcon>', () => {
-    const wrapper = shallow(<StepIcon icon={1} />);
-    assert.strictEqual(wrapper.find(SvgIcon).length, 1);
+    const { container } = render(<StepIcon icon={1} error />);
+    expect(container.querySelectorAll('svg[data-mui-test="WarningIcon"]')).to.have.length(1);
   });
 
   it('contains text "3" when position is "3"', () => {
-    const wrapper = shallow(<StepIcon icon={3} />);
-    assert.strictEqual(wrapper.find('text').text(), '3');
+    const { queryByText } = render(<StepIcon icon={3} />);
+    expect(queryByText('3')).not.to.equal(null);
   });
 
   it('renders the custom icon', () => {
-    const wrapper = shallow(<StepIcon icon={<span className="my-icon" />} />);
-    assert.strictEqual(wrapper.find('.my-icon').length, 1, 'should have the custom icon');
+    const { container } = render(<StepIcon icon={<span className="my-icon" />} />);
+    expect(container.querySelectorAll('.my-icon')).to.have.length(1);
   });
 });

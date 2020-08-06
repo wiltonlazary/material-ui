@@ -1,9 +1,12 @@
-import React from 'react';
-import { assert } from 'chai';
+import * as React from 'react';
+import { expect } from 'chai';
 import { createShallow, getClasses } from '@material-ui/core/test-utils';
+import createMount from 'test/utils/createMount';
+import describeConformance from '../test-utils/describeConformance';
 import DialogContent from './DialogContent';
 
 describe('<DialogContent />', () => {
+  const mount = createMount();
   let shallow;
   let classes;
 
@@ -12,29 +15,17 @@ describe('<DialogContent />', () => {
     classes = getClasses(<DialogContent />);
   });
 
-  it('should render a div', () => {
-    const wrapper = shallow(<DialogContent />);
-    assert.strictEqual(wrapper.name(), 'div');
-  });
-
-  it('should spread custom props on the root node', () => {
-    const wrapper = shallow(<DialogContent data-my-prop="woofDialogContent" />);
-    assert.strictEqual(
-      wrapper.props()['data-my-prop'],
-      'woofDialogContent',
-      'custom prop should be woofDialogContent',
-    );
-  });
-
-  it('should render with the user and root classes', () => {
-    const wrapper = shallow(<DialogContent className="woofDialogContent" />);
-    assert.strictEqual(wrapper.hasClass('woofDialogContent'), true);
-    assert.strictEqual(wrapper.hasClass(classes.root), true);
-  });
+  describeConformance(<DialogContent />, () => ({
+    classes,
+    inheritComponent: 'div',
+    mount,
+    refInstanceof: window.HTMLDivElement,
+    skip: ['componentProp'],
+  }));
 
   it('should render children', () => {
     const children = <p />;
     const wrapper = shallow(<DialogContent>{children}</DialogContent>);
-    assert.strictEqual(wrapper.children().equals(children), true);
+    expect(wrapper.children().equals(children)).to.equal(true);
   });
 });

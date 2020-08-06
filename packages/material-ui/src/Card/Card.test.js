@@ -1,37 +1,30 @@
-import React from 'react';
-import { assert } from 'chai';
-import { createShallow, getClasses } from '@material-ui/core/test-utils';
+import * as React from 'react';
+import { expect } from 'chai';
+import { getClasses } from '@material-ui/core/test-utils';
+import createMount from 'test/utils/createMount';
+import { createClientRender } from 'test/utils/createClientRender';
+import describeConformance from '../test-utils/describeConformance';
 import Card from './Card';
 import Paper from '../Paper';
 
 describe('<Card />', () => {
-  let shallow;
+  const mount = createMount();
   let classes;
-
+  const render = createClientRender();
   before(() => {
-    shallow = createShallow({ dive: true });
     classes = getClasses(<Card />);
   });
 
-  it('should render Paper with the root class', () => {
-    const wrapper = shallow(<Card />);
-    assert.strictEqual(wrapper.type(), Paper);
-    assert.strictEqual(wrapper.props().elevation, 1);
-  });
+  describeConformance(<Card />, () => ({
+    classes,
+    inheritComponent: Paper,
+    mount,
+    refInstanceof: window.HTMLDivElement,
+    skip: ['componentProp'],
+  }));
 
-  it('should have the root and custom class', () => {
-    const wrapper = shallow(<Card className="card" />);
-    assert.strictEqual(wrapper.hasClass(classes.root), true);
-    assert.strictEqual(wrapper.hasClass('card'), true);
-  });
-
-  it('should render Paper with 8dp', () => {
-    const wrapper = shallow(<Card raised />);
-    assert.strictEqual(wrapper.props().elevation, 8);
-  });
-
-  it('should spread custom props on the root node', () => {
-    const wrapper = shallow(<Card data-my-prop="woofCard" />);
-    assert.strictEqual(wrapper.props()['data-my-prop'], 'woofCard');
+  it('when raised should render Paper with 8dp', () => {
+    const { container } = render(<Card raised />);
+    expect(container.firstChild).to.have.class('MuiPaper-elevation8');
   });
 });

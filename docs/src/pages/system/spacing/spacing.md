@@ -70,21 +70,21 @@ const theme = {
 
 ## Example
 
+{{"demo": "pages/system/spacing/Demo.js", "defaultCodeOpen": false, "bg": true}}
+
 ```jsx
 <Box p={1}>…
 <Box m={1}>…
 <Box p={2}>…
 ```
 
-{{"demo": "pages/system/spacing/Demo.js"}}
-
 ## Horizontal centering
+
+{{"demo": "pages/system/spacing/HorizontalCentering.js", "defaultCodeOpen": false, "bg": true}}
 
 ```jsx
 <Box mx="auto">…
 ```
-
-{{"demo": "pages/system/spacing/HorizontalCentering.js"}}
 
 ## API
 
@@ -94,24 +94,29 @@ import { spacing } from '@material-ui/system';
 
 | Import name | Prop | CSS property | Theme key |
 |:------------|:-----|:-------------|:----------|
-| `spacing` | `m` | `margin` | `spacing` |
-| `spacing` | `mt` | `margin-top` | `spacing` |
-| `spacing` | `mr` | `margin-right` | `spacing` |
-| `spacing` | `mb` | `margin-bottom` | `spacing` |
-| `spacing` | `ml` | `margin-left` | `spacing` |
-| `spacing` | `mx` | `margin-left`, `margin-right` | `spacing` |
-| `spacing` | `my` | `margin-top`, `margin-bottom` | `spacing` |
-| `spacing` | `p` | `padding` | `spacing` |
-| `spacing` | `pt` | `padding-top` | `spacing` |
-| `spacing` | `pr` | `padding-right` | `spacing` |
-| `spacing` | `pb` | `padding-bottom` | `spacing` |
-| `spacing` | `pl` | `padding-left` | `spacing` |
-| `spacing` | `px` | `padding-left`, `padding-right` | `spacing` |
-| `spacing` | `py` | `padding-top`, `padding-bottom` | `spacing` |
+| `spacing` | `m` | `margin` | [`spacing`](/customization/default-theme/?expand-path=$.spacing) |
+| `spacing` | `mt` | `margin-top` | [`spacing`](/customization/default-theme/?expand-path=$.spacing) |
+| `spacing` | `mr` | `margin-right` | [`spacing`](/customization/default-theme/?expand-path=$.spacing) |
+| `spacing` | `mb` | `margin-bottom` | [`spacing`](/customization/default-theme/?expand-path=$.spacing) |
+| `spacing` | `ml` | `margin-left` | [`spacing`](/customization/default-theme/?expand-path=$.spacing) |
+| `spacing` | `mx` | `margin-left`, `margin-right` | [`spacing`](/customization/default-theme/?expand-path=$.spacing) |
+| `spacing` | `my` | `margin-top`, `margin-bottom` | [`spacing`](/customization/default-theme/?expand-path=$.spacing) |
+| `spacing` | `p` | `padding` | [`spacing`](/customization/default-theme/?expand-path=$.spacing) |
+| `spacing` | `pt` | `padding-top` | [`spacing`](/customization/default-theme/?expand-path=$.spacing) |
+| `spacing` | `pr` | `padding-right` | [`spacing`](/customization/default-theme/?expand-path=$.spacing) |
+| `spacing` | `pb` | `padding-bottom` | [`spacing`](/customization/default-theme/?expand-path=$.spacing) |
+| `spacing` | `pl` | `padding-left` | [`spacing`](/customization/default-theme/?expand-path=$.spacing) |
+| `spacing` | `px` | `padding-left`, `padding-right` | [`spacing`](/customization/default-theme/?expand-path=$.spacing) |
+| `spacing` | `py` | `padding-top`, `padding-bottom` | [`spacing`](/customization/default-theme/?expand-path=$.spacing) |
 
-*Some people find the property shorthand confusing, you can use the full version if you prefer:*
+*Some people find the prop shorthand confusing, you can use the full version if you prefer:*
 
 ```diff
 -<Box pt={2} />
 +<Box paddingTop={2} />
+```
+
+```diff
+-<Box px={2} />
++<Box paddingX={2} />
 ```

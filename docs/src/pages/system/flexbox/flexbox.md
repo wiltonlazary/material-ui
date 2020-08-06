@@ -2,48 +2,49 @@
 
 <p class="description">Quickly manage the layout, alignment, and sizing of grid columns, navigation, components, and more with a full suite of responsive flexbox utilities.</p>
 
-The documentation page is highly inspired by [A Complete Guide to Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/).
-We highly encourage you to read and memorize it.
+If you are **new to or unfamiliar with flexbox**, we encourage you to read this [CSS-Tricks flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/) guide.
 
 ## Properties for the Parent
 
 ### display
 
+{{"demo": "pages/system/flexbox/Display.js", "defaultCodeOpen": false, "bg": true}}
+
 ```jsx
 <Box display="flex">…
 ```
 
-{{"demo": "pages/system/flexbox/Display.js"}}
-
 ### flex-direction
+
+{{"demo": "pages/system/flexbox/FlexDirection.js", "defaultCodeOpen": false, "bg": true}}
 
 ```jsx
 <Box flexDirection="row">…
 <Box flexDirection="row-reverse">…
 ```
 
-{{"demo": "pages/system/flexbox/FlexDirection.js"}}
-
 ### flex-wrap
+
+{{"demo": "pages/system/flexbox/FlexWrap.js", "defaultCodeOpen": false, "bg": true}}
 
 ```jsx
 <Box flexWrap="nowrap">…
 <Box flexWrap="wrap">…
 ```
 
-{{"demo": "pages/system/flexbox/FlexWrap.js"}}
-
 ### justify-content
+
+{{"demo": "pages/system/flexbox/JustifyContent.js", "defaultCodeOpen": false, "bg": true}}
 
 ```jsx
 <Box justifyContent="flex-start">…
-<Box justifyContent="center">…
 <Box justifyContent="flex-end">…
+<Box justifyContent="center">…
 ```
 
-{{"demo": "pages/system/flexbox/JustifyContent.js"}}
-
 ### align-items
+
+{{"demo": "pages/system/flexbox/AlignItems.js", "defaultCodeOpen": false, "bg": true}}
 
 ```jsx
 <Box alignItems="flex-start">…
@@ -51,20 +52,20 @@ We highly encourage you to read and memorize it.
 <Box alignItems="center">…
 ```
 
-{{"demo": "pages/system/flexbox/AlignItems.js"}}
-
 ### align-content
+
+{{"demo": "pages/system/flexbox/AlignContent.js", "defaultCodeOpen": false, "bg": true}}
 
 ```jsx
 <Box alignContent="flex-start">…
 <Box alignContent="flex-end">…
 ```
 
-{{"demo": "pages/system/flexbox/AlignContent.js"}}
-
 ## Properties for the Children
 
 ### order
+
+{{"demo": "pages/system/flexbox/Order.js", "defaultCodeOpen": false, "bg": true}}
 
 ```jsx
 <Box order={2}>Item 1</Box>
@@ -72,9 +73,9 @@ We highly encourage you to read and memorize it.
 <Box order={1}>Item 3</Box>
 ```
 
-{{"demo": "pages/system/flexbox/Order.js"}}
-
 ### flex-grow
+
+{{"demo": "pages/system/flexbox/FlexGrow.js", "defaultCodeOpen": false, "bg": true}}
 
 ```jsx
 <Box flexGrow={1}>Item 1</Box>
@@ -82,9 +83,9 @@ We highly encourage you to read and memorize it.
 <Box>Item 3</Box>
 ```
 
-{{"demo": "pages/system/flexbox/FlexGrow.js"}}
-
 ### flex-shrink
+
+{{"demo": "pages/system/flexbox/FlexShrink.js", "defaultCodeOpen": false, "bg": true}}
 
 ```jsx
 <Box width="100%">Item 1</Box>
@@ -92,17 +93,15 @@ We highly encourage you to read and memorize it.
 <Box flexShrink={0}>Item 3</Box>
 ```
 
-{{"demo": "pages/system/flexbox/FlexShrink.js"}}
-
 ### align-self
+
+{{"demo": "pages/system/flexbox/AlignSelf.js", "defaultCodeOpen": false, "bg": true}}
 
 ```jsx
 <Box>Item 1</Box>
-<Box alignSelf="flex-end">Item 1</Box>
-<Box>Item 1</Box>
+<Box alignSelf="flex-end">Item 2</Box>
+<Box>Item 3</Box>
 ```
-
-{{"demo": "pages/system/flexbox/AlignSelf.js"}}
 
 ## API
 

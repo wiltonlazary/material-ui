@@ -12,7 +12,7 @@ process.env.CHROME_BIN = require('puppeteer').executablePath();
 module.exports = function setKarmaConfig(config) {
   const baseConfig = {
     basePath: '../',
-    browsers: ['ChromeHeadless'],
+    browsers: ['ChromeHeadlessNoSandbox'],
     browserDisconnectTimeout: 120000, // default 2000
     browserDisconnectTolerance: 1, // default 0
     browserNoActivityTimeout: 300000, // default 10000
@@ -54,6 +54,7 @@ module.exports = function setKarmaConfig(config) {
         new webpack.DefinePlugin({
           'process.env': {
             NODE_ENV: JSON.stringify('test'),
+            CI: JSON.stringify(process.env.CI),
           },
         }),
       ],
@@ -62,8 +63,7 @@ module.exports = function setKarmaConfig(config) {
           {
             test: /\.js$/,
             loader: 'babel-loader',
-            // https://github.com/sinonjs/sinon/issues/1951
-            exclude: /node_modules(\\|\/)(?!(sinon)(\\|\/)).*/,
+            exclude: /node_modules/,
           },
         ],
       },
@@ -71,17 +71,41 @@ module.exports = function setKarmaConfig(config) {
         // Some tests import fs
         fs: 'empty',
       },
+      resolve: {
+        alias: {
+          // yarn alias for `pretty-format@3`
+          // @testing-library/dom -> pretty-format@25
+          // which uses Object.entries which isn't implemented in all browsers
+          // we support
+          'pretty-format': require.resolve('pretty-format-v24'),
+          // https://github.com/sinonjs/sinon/issues/1951
+          // use the cdn main field. Neither module nor main are supported for browserbuilds
+          sinon: 'sinon/pkg/sinon.js',
+          // https://github.com/testing-library/react-testing-library/issues/486
+          // "default" bundles are not browser compatible
+          '@testing-library/react/pure':
+            '@testing-library/react/dist/@testing-library/react.pure.esm',
+        },
+      },
     },
-    webpackServer: {
+    webpackMiddleware: {
       noInfo: true,
+      writeToDisk: Boolean(process.env.CI),
     },
-    customLaunchers: {},
+    customLaunchers: {
+      ChromeHeadlessNoSandbox: {
+        base: 'ChromeHeadless',
+        flags: ['--no-sandbox'],
+      },
+    },
+    singleRun: Boolean(process.env.CI),
   };
 
   let newConfig = baseConfig;
 
   if (browserStack.accessKey) {
-    newConfig = Object.assign({}, baseConfig, {
+    newConfig = {
+      ...baseConfig,
       browserStack,
       browsers: baseConfig.browsers.concat([
         'BrowserStack_Chrome',
@@ -90,13 +114,14 @@ module.exports = function setKarmaConfig(config) {
         'BrowserStack_Edge',
       ]),
       plugins: baseConfig.plugins.concat(['karma-browserstack-launcher']),
-      customLaunchers: Object.assign({}, baseConfig.customLaunchers, {
+      customLaunchers: {
+        ...baseConfig.customLaunchers,
         BrowserStack_Chrome: {
           base: 'BrowserStack',
           os: 'OS X',
           os_version: 'Sierra',
           browser: 'Chrome',
-          browser_version: '41.0',
+          browser_version: '49.0',
         },
         BrowserStack_Firefox: {
           base: 'BrowserStack',
@@ -119,8 +144,8 @@ module.exports = function setKarmaConfig(config) {
           browser: 'Edge',
           browser_version: '14.0',
         },
-      }),
-    });
+      },
+    };
   }
 
   config.set(newConfig);

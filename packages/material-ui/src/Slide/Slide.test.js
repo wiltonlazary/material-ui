@@ -1,248 +1,436 @@
-import React from 'react';
-import { assert } from 'chai';
-import { spy, useFakeTimers } from 'sinon';
-import Transition from 'react-transition-group/Transition';
-import { createShallow, createMount, unwrap } from '@material-ui/core/test-utils';
+import * as React from 'react';
+import { expect } from 'chai';
+import { spy, stub, useFakeTimers } from 'sinon';
+import createMount from 'test/utils/createMount';
+import describeConformance from '@material-ui/core/test-utils/describeConformance';
 import Slide, { setTranslateValue } from './Slide';
-import transitions, { easing } from '../styles/transitions';
-import createMuiTheme from '../styles/createMuiTheme';
+import {
+  createMuiTheme,
+  ThemeProvider,
+  unstable_createMuiStrictModeTheme as createMuiStrictModeTheme,
+} from '@material-ui/core/styles';
+import { Transition } from 'react-transition-group';
+import { useForkRef } from '../utils';
 
 describe('<Slide />', () => {
-  let shallow;
-  let mount;
-  const SlideNaked = unwrap(Slide);
+  const mount = createMount();
   const defaultProps = {
     in: true,
-    children: <div />,
+    children: <div id="testChild" />,
     direction: 'down',
   };
 
-  before(() => {
-    shallow = createShallow({ dive: true });
-    mount = createMount();
-  });
-
-  after(() => {
-    mount.cleanUp();
-  });
-
-  it('should render a Transition', () => {
-    const wrapper = shallow(<Slide {...defaultProps} />);
-    assert.strictEqual(wrapper.name(), 'EventListener');
-    assert.strictEqual(wrapper.childAt(0).name(), 'Transition');
-  });
+  describeConformance(
+    <Slide in>
+      <div />
+    </Slide>,
+    () => ({
+      classes: {},
+      inheritComponent: Transition,
+      mount,
+      refInstanceof: window.HTMLDivElement,
+      skip: [
+        'componentProp',
+        // react-transition-group issue
+        'reactTestRenderer',
+      ],
+    }),
+  );
 
   it('should not override children styles', () => {
     const wrapper = mount(
-      <SlideNaked
+      <Slide
         {...defaultProps}
         style={{ color: 'red', backgroundColor: 'yellow' }}
         theme={createMuiTheme()}
       >
-        <div style={{ color: 'blue' }} />
-      </SlideNaked>,
+        <div id="with-slide" style={{ color: 'blue' }} />
+      </Slide>,
     );
-    assert.deepEqual(
-      wrapper
-        .childAt(0)
-        .childAt(0)
-        .props().style,
-      {
-        backgroundColor: 'yellow',
-        color: 'blue',
-      },
-    );
+    expect(wrapper.find('#with-slide').props().style).to.deep.equal({
+      backgroundColor: 'yellow',
+      color: 'blue',
+      visibility: undefined,
+    });
   });
 
-  describe('event callbacks', () => {
-    it('should fire event callbacks', () => {
-      const events = ['onEnter', 'onEntering', 'onEntered', 'onExit', 'onExiting', 'onExited'];
+  describe('transition lifecycle', () => {
+    let clock;
 
-      const handlers = events.reduce((result, n) => {
-        result[n] = spy();
-        return result;
-      }, {});
+    before(() => {
+      clock = useFakeTimers();
+    });
 
-      const wrapper = shallow(<Slide {...defaultProps} {...handlers} />).childAt(0);
+    after(() => {
+      clock.restore();
+    });
 
-      events.forEach(n => {
-        const event = n.charAt(2).toLowerCase() + n.slice(3);
-        wrapper.simulate(event, {
-          fakeTransform: 'none',
-          style: {},
-          getBoundingClientRect: () => ({}),
-        });
-        assert.strictEqual(handlers[n].callCount, 1, `should have called the ${n} handler`);
-      });
+    it('tests', () => {
+      const handleEnter = spy();
+      const handleEntering = spy();
+      const handleEntered = spy();
+      const handleExit = spy();
+      const handleExiting = spy();
+      const handleExited = spy();
+
+      let child;
+      const wrapper = mount(
+        <Slide
+          onEnter={handleEnter}
+          onEntering={handleEntering}
+          onEntered={handleEntered}
+          onExit={handleExit}
+          onExiting={handleExiting}
+          onExited={handleExited}
+        >
+          <div
+            ref={(ref) => {
+              child = ref;
+            }}
+          />
+        </Slide>,
+      );
+
+      wrapper.setProps({ in: true });
+
+      expect(handleEntering.callCount).to.equal(1);
+      expect(handleEntering.args[0][0]).to.equal(child);
+
+      expect(handleEntering.args[0][0].style.transform).to.match(/none/);
+
+      expect(handleEntering.callCount).to.equal(1);
+      expect(handleEntering.args[0][0]).to.equal(child);
+
+      clock.tick(1000);
+      expect(handleEntered.callCount).to.equal(1);
+
+      wrapper.setProps({ in: false });
+
+      expect(handleExiting.callCount).to.equal(1);
+      expect(handleExiting.args[0][0]).to.equal(child);
+
+      expect(handleExiting.callCount).to.equal(1);
+      expect(handleExiting.args[0][0]).to.equal(child);
+
+      clock.tick(1000);
+      expect(handleExited.callCount).to.equal(1);
+      expect(handleExited.args[0][0]).to.equal(child);
     });
   });
 
   describe('prop: timeout', () => {
-    let wrapper;
-    let instance;
-    let element;
-    const enterDuration = 556;
-    const leaveDuration = 446;
+    it('should create proper easeOut animation onEntering', () => {
+      const handleEntering = spy();
 
-    beforeEach(() => {
-      wrapper = shallow(
+      mount(
         <Slide
           {...defaultProps}
           timeout={{
-            enter: enterDuration,
-            exit: leaveDuration,
+            enter: 556,
           }}
+          onEntering={handleEntering}
         />,
       );
-      instance = wrapper.instance();
-      element = { fakeTransform: 'none', getBoundingClientRect: () => ({}), style: {} };
-    });
 
-    it('should create proper easeOut animation onEntering', () => {
-      instance.handleEntering(element);
-      const animation = transitions.create('transform', {
-        duration: enterDuration,
-        easing: easing.easeOut,
-      });
-      assert.strictEqual(element.style.transition, animation);
+      expect(handleEntering.args[0][0].style.transition).to.match(
+        /transform 556ms cubic-bezier\(0(.0)?, 0, 0.2, 1\)( 0ms)?/,
+      );
     });
 
     it('should create proper sharp animation onExit', () => {
-      instance.handleExit(element);
-      const animation = transitions.create('transform', {
-        duration: leaveDuration,
-        easing: easing.sharp,
-      });
-      assert.strictEqual(element.style.transition, animation);
+      const handleExit = spy();
+      const wrapper = mount(
+        <Slide
+          {...defaultProps}
+          timeout={{
+            exit: 446,
+          }}
+          onExit={handleExit}
+        />,
+      );
+
+      wrapper.setProps({ in: false });
+
+      expect(handleExit.args[0][0].style.transition).to.match(
+        /transform 446ms cubic-bezier\(0.4, 0, 0.6, 1\)( 0ms)?/,
+      );
     });
   });
 
   describe('prop: direction', () => {
     it('should update the position', () => {
-      const wrapper = mount(
-        <SlideNaked {...defaultProps} theme={createMuiTheme()} in={false} direction="left" />,
-      );
-      const transition = wrapper.instance().transitionRef;
+      const wrapper = mount(<Slide {...defaultProps} in={false} direction="left" />);
+      const child = wrapper.find('#testChild').instance();
 
-      const transition1 = transition.style.transform;
+      const transition1 = child.style.transform;
       wrapper.setProps({
         direction: 'right',
       });
 
-      const transition2 = transition.style.transform;
-      assert.notStrictEqual(transition1, transition2);
+      const transition2 = child.style.transform;
+      expect(transition1).to.not.equal(transition2);
     });
   });
 
-  describe('transition lifecycle', () => {
-    let wrapper;
-    let instance;
-
-    before(() => {
-      wrapper = shallow(<Slide {...defaultProps} />);
-      instance = wrapper.instance();
+  describe('transform styling', () => {
+    const FakeDiv = React.forwardRef((props, ref) => {
+      const stubBoundingClientRect = (element) => {
+        if (element !== null) {
+          element.fakeTransform = 'none';
+          try {
+            stub(element, 'getBoundingClientRect').callsFake(() => ({
+              width: 500,
+              height: 300,
+              left: 300,
+              right: 800,
+              top: 200,
+              bottom: 500,
+              ...props.rect,
+            }));
+          } catch (error) {
+            // already stubbed
+          }
+        }
+      };
+      const handleRef = useForkRef(ref, stubBoundingClientRect);
+      return <div {...props} ref={handleRef} />;
     });
 
     describe('handleEnter()', () => {
-      let element;
+      it('should set element transform and transition in the `left` direction', () => {
+        let nodeEnterTransformStyle;
+        const wrapper = mount(
+          <Slide
+            direction="left"
+            onEnter={(node) => {
+              nodeEnterTransformStyle = node.style.transform;
+            }}
+          >
+            <FakeDiv />
+          </Slide>,
+        );
 
-      beforeEach(() => {
-        element = {
-          fakeTransform: 'none',
-          getBoundingClientRect: () => ({
-            width: 500,
-            height: 300,
-            left: 300,
-            right: 800,
-            top: 200,
-            bottom: 500,
-          }),
-          style: {},
-        };
+        wrapper.setProps({ in: true });
+
+        expect(nodeEnterTransformStyle).to.equal(
+          `translateX(${global.innerWidth}px) translateX(-300px)`,
+        );
       });
 
-      it('should set element transform and transition according to the direction', () => {
-        wrapper.setProps({ direction: 'left' });
-        instance.handleEnter(element);
-        assert.strictEqual(element.style.transform, 'translateX(100vw) translateX(-300px)');
-        wrapper.setProps({ direction: 'right' });
-        instance.handleEnter(element);
-        assert.strictEqual(element.style.transform, 'translateX(-824px)');
-        wrapper.setProps({ direction: 'up' });
-        instance.handleEnter(element);
-        assert.strictEqual(element.style.transform, 'translateY(100vh) translateY(-200px)');
-        wrapper.setProps({ direction: 'down' });
-        instance.handleEnter(element);
-        assert.strictEqual(element.style.transform, 'translateY(-524px)');
+      it('should set element transform and transition in the `right` direction', () => {
+        let nodeEnterTransformStyle;
+        const wrapper = mount(
+          <Slide
+            direction="right"
+            onEnter={(node) => {
+              nodeEnterTransformStyle = node.style.transform;
+            }}
+          >
+            <FakeDiv />
+          </Slide>,
+        );
+
+        wrapper.setProps({ in: true });
+
+        expect(nodeEnterTransformStyle).to.equal('translateX(-800px)');
+      });
+
+      it('should set element transform and transition in the `up` direction', () => {
+        let nodeEnterTransformStyle;
+        const wrapper = mount(
+          <Slide
+            direction="up"
+            onEnter={(node) => {
+              nodeEnterTransformStyle = node.style.transform;
+            }}
+          >
+            <FakeDiv />
+          </Slide>,
+        );
+
+        wrapper.setProps({ in: true });
+
+        expect(nodeEnterTransformStyle).to.equal(
+          `translateY(${global.innerHeight}px) translateY(-200px)`,
+        );
+      });
+
+      it('should set element transform and transition in the `down` direction', () => {
+        let nodeEnterTransformStyle;
+        const wrapper = mount(
+          <Slide
+            direction="down"
+            onEnter={(node) => {
+              nodeEnterTransformStyle = node.style.transform;
+            }}
+          >
+            <FakeDiv />
+          </Slide>,
+        );
+
+        wrapper.setProps({ in: true });
+
+        expect(nodeEnterTransformStyle).to.equal('translateY(-500px)');
       });
 
       it('should reset the previous transition if needed', () => {
-        element.style.transform = 'translateX(-824px)';
-        wrapper.setProps({ direction: 'right' });
-        instance.handleEnter(element);
-        assert.strictEqual(element.style.transform, 'translateX(-824px)');
+        const childRef = React.createRef();
+        let nodeEnterTransformStyle;
+        const wrapper = mount(
+          <Slide
+            direction="right"
+            onEnter={(node) => {
+              nodeEnterTransformStyle = node.style.transform;
+            }}
+          >
+            <FakeDiv ref={childRef} />
+          </Slide>,
+        );
+
+        childRef.current.style.transform = 'translateX(-800px)';
+        wrapper.setProps({ in: true });
+
+        expect(nodeEnterTransformStyle).to.equal('translateX(-800px)');
       });
-    });
 
-    describe('handleEntering()', () => {
-      let element;
+      it('should set element transform in the `up` direction when element is offscreen', () => {
+        const childRef = React.createRef();
+        let nodeEnterTransformStyle;
+        const wrapper = mount(
+          <Slide
+            direction="up"
+            onEnter={(node) => {
+              nodeEnterTransformStyle = node.style.transform;
+            }}
+          >
+            <FakeDiv rect={{ top: -100 }} ref={childRef} />
+          </Slide>,
+        );
 
-      before(() => {
-        element = { style: {} };
-        instance.handleEntering(element);
+        wrapper.setProps({ in: true });
+
+        expect(nodeEnterTransformStyle).to.equal(
+          `translateY(${global.innerHeight}px) translateY(100px)`,
+        );
       });
 
-      it('should reset the translate3d', () => {
-        assert.strictEqual(element.style.transform, 'translate(0, 0)');
+      it('should set element transform in the `left` direction when element is offscreen', () => {
+        const childRef = React.createRef();
+        let nodeEnterTransformStyle;
+        const wrapper = mount(
+          <Slide
+            direction="left"
+            onEnter={(node) => {
+              nodeEnterTransformStyle = node.style.transform;
+            }}
+          >
+            <FakeDiv rect={{ left: -100 }} ref={childRef} />
+          </Slide>,
+        );
+
+        wrapper.setProps({ in: true });
+
+        expect(nodeEnterTransformStyle).to.equal(
+          `translateX(${global.innerWidth}px) translateX(100px)`,
+        );
       });
     });
 
     describe('handleExiting()', () => {
-      let element;
+      it('should set element transform and transition in the `left` direction', () => {
+        let nodeExitingTransformStyle;
+        const wrapper = mount(
+          <Slide
+            direction="left"
+            in
+            onExit={(node) => {
+              nodeExitingTransformStyle = node.style.transform;
+            }}
+          >
+            <FakeDiv />
+          </Slide>,
+        );
 
-      before(() => {
-        element = {
-          fakeTransform: 'none',
-          getBoundingClientRect: () => ({
-            width: 500,
-            height: 300,
-            left: 300,
-            right: 800,
-            top: 200,
-            bottom: 500,
-          }),
-          style: {},
-        };
+        wrapper.setProps({ in: false });
+
+        expect(nodeExitingTransformStyle).to.equal(
+          `translateX(${global.innerWidth}px) translateX(-300px)`,
+        );
       });
 
-      it('should set element transform and transition according to the direction', () => {
-        wrapper.setProps({ direction: 'left' });
-        instance.handleEnter(element);
-        assert.strictEqual(element.style.transform, 'translateX(100vw) translateX(-300px)');
-        wrapper.setProps({ direction: 'right' });
-        instance.handleEnter(element);
-        assert.strictEqual(element.style.transform, 'translateX(-824px)');
-        wrapper.setProps({ direction: 'up' });
-        instance.handleEnter(element);
-        assert.strictEqual(element.style.transform, 'translateY(100vh) translateY(-200px)');
-        wrapper.setProps({ direction: 'down' });
-        instance.handleEnter(element);
-        assert.strictEqual(element.style.transform, 'translateY(-524px)');
+      it('should set element transform and transition in the `right` direction', () => {
+        let nodeExitingTransformStyle;
+        const wrapper = mount(
+          <Slide
+            direction="right"
+            in
+            onExit={(node) => {
+              nodeExitingTransformStyle = node.style.transform;
+            }}
+          >
+            <FakeDiv />
+          </Slide>,
+        );
+
+        wrapper.setProps({ in: false });
+
+        expect(nodeExitingTransformStyle).to.equal('translateX(-800px)');
+      });
+
+      it('should set element transform and transition in the `up` direction', () => {
+        let nodeExitingTransformStyle;
+        const wrapper = mount(
+          <Slide
+            direction="up"
+            in
+            onExit={(node) => {
+              nodeExitingTransformStyle = node.style.transform;
+            }}
+          >
+            <FakeDiv />
+          </Slide>,
+        );
+
+        wrapper.setProps({ in: false });
+
+        expect(nodeExitingTransformStyle).to.equal(
+          `translateY(${global.innerHeight}px) translateY(-200px)`,
+        );
+      });
+
+      it('should set element transform and transition in the `down` direction', () => {
+        let nodeExitingTransformStyle;
+        const wrapper = mount(
+          <Slide
+            direction="down"
+            in
+            onExit={(node) => {
+              nodeExitingTransformStyle = node.style.transform;
+            }}
+          >
+            <FakeDiv />
+          </Slide>,
+        );
+
+        wrapper.setProps({ in: false });
+
+        expect(nodeExitingTransformStyle).to.equal('translateY(-500px)');
       });
     });
   });
 
   describe('mount', () => {
     it('should work when initially hidden', () => {
-      const wrapper = mount(
-        <SlideNaked theme={createMuiTheme()} in={false}>
-          <div>Foo</div>
-        </SlideNaked>,
+      const childRef = React.createRef();
+      mount(
+        <Slide in={false}>
+          <div ref={childRef}>Foo</div>
+        </Slide>,
       );
-      const transition = wrapper.instance().transitionRef;
+      const transition = childRef.current;
 
-      assert.strictEqual(transition.style.visibility, 'inherit');
-      assert.notStrictEqual(transition.style.transform, undefined);
+      expect(transition.style.visibility).to.equal('hidden');
+      expect(transition.style.transform).to.not.equal(undefined);
     });
   });
 
@@ -259,16 +447,16 @@ describe('<Slide />', () => {
 
     it('should recompute the correct position', () => {
       const wrapper = mount(
-        <SlideNaked theme={createMuiTheme()} direction="up" in={false}>
-          <div>Foo</div>
-        </SlideNaked>,
+        <Slide direction="up" in={false}>
+          <div id="testChild">Foo</div>
+        </Slide>,
       );
-      const instance = wrapper.instance();
-      instance.handleResize();
-      clock.tick(166);
-      const transition = instance.transitionRef;
 
-      assert.notStrictEqual(transition.style.transform, undefined);
+      window.dispatchEvent(new window.Event('resize', {}));
+      clock.tick(166);
+      const child = wrapper.find('#testChild').instance();
+
+      expect(child.style.transform).to.not.equal(undefined);
     });
 
     it('should take existing transform into account', () => {
@@ -284,27 +472,39 @@ describe('<Slide />', () => {
         }),
         style: {},
       };
-      setTranslateValue(
-        {
-          direction: 'up',
-        },
-        element,
+      setTranslateValue('up', element);
+      expect(element.style.transform).to.equal(
+        `translateY(${global.innerHeight}px) translateY(-780px)`,
       );
-      assert.strictEqual(element.style.transform, 'translateY(100vh) translateY(-780px)');
     });
 
     it('should do nothing when visible', () => {
-      const wrapper = shallow(<Slide {...defaultProps} />);
-      const instance = wrapper.instance();
-      instance.handleResize();
+      mount(<Slide {...defaultProps} />);
+      window.dispatchEvent(new window.Event('resize', {}));
       clock.tick(166);
     });
   });
 
   describe('server-side', () => {
     it('should be initially hidden', () => {
-      const wrapper = shallow(<Slide {...defaultProps} in={false} />);
-      assert.strictEqual(wrapper.find(Transition).props().style.visibility, 'hidden');
+      const wrapper = mount(
+        <Slide {...defaultProps} in={false}>
+          <div id="with-slide" />
+        </Slide>,
+      );
+      expect(wrapper.find('#with-slide').props().style.visibility).to.equal('hidden');
     });
+  });
+
+  it('has no StrictMode warnings in a StrictMode theme', () => {
+    mount(
+      <React.StrictMode>
+        <ThemeProvider theme={createMuiStrictModeTheme()}>
+          <Slide appear in>
+            <div />
+          </Slide>
+        </ThemeProvider>
+      </React.StrictMode>,
+    );
   });
 });

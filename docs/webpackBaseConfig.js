@@ -12,10 +12,11 @@ module.exports = {
       '@material-ui/icons': path.resolve(__dirname, '../packages/material-ui-icons/src'),
       '@material-ui/lab': path.resolve(__dirname, '../packages/material-ui-lab/src'),
       '@material-ui/styles': path.resolve(__dirname, '../packages/material-ui-styles/src'),
-      '@material-ui/utils': path.resolve(__dirname, '../packages/material-ui-utils/src'),
       '@material-ui/system': path.resolve(__dirname, '../packages/material-ui-system/src'),
+      '@material-ui/utils': path.resolve(__dirname, '../packages/material-ui-utils/src'),
       docs: path.resolve(__dirname, '../docs'),
     },
+    extensions: ['.js', '.ts'],
   },
   output: {
     path: path.join(__dirname, 'build'),
@@ -25,16 +26,12 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.js$/,
+        test: /\.(js|ts)$/,
         exclude: /node_modules/,
         loader: 'babel-loader',
         query: {
           cacheDirectory: true,
         },
-      },
-      {
-        test: /\.svg$/,
-        loader: 'file-loader',
       },
       {
         test: /\.md$/,

@@ -1,6 +1,4 @@
 /* eslint-disable no-console */
-
-import './bootstrap';
 import Benchmark from 'benchmark';
 import React from 'react';
 import ReactDOMServer from 'react-dom/server';
@@ -9,45 +7,34 @@ import { ThemeProvider as EmotionTheme } from 'emotion-theming';
 import { space, color, fontFamily, fontSize, compose as compose2 } from 'styled-system';
 import { spacing, palette, typography, compose } from '@material-ui/system';
 import { createMuiTheme } from '@material-ui/core/styles';
-import { styleFunction } from '@material-ui/core/Box/Box';
+import { styleFunction } from '@material-ui/core/Box';
 import { styled, ThemeProvider as StylesThemeProvider } from '@material-ui/styles';
 import styledComponents, {
   ThemeProvider as StyledComponentsThemeProvider,
 } from 'styled-components';
 
 const suite = new Benchmark.Suite('system', {
-  onError: event => {
+  onError: (event) => {
     console.log(event.target.error);
   },
 });
 Benchmark.options.minSamples = 100;
 
-const materialSystem = compose(
-  palette,
-  spacing,
-  typography,
-);
+const materialSystem = compose(palette, spacing, typography);
 const styledSystem = compose2(color, space, fontFamily, fontSize);
 
 const BoxStyles = styled('div')(styleFunction);
 const BoxStyleComponents = styledComponents('div')(styleFunction);
+const NakedStyleComponents = styledComponents('div')(spacing);
 const BoxEmotion = styledEmotion('div')(styleFunction);
 
-const BoxMaterialSystem = styledComponents.div`${materialSystem}`;
-const BoxStyledSystem = styledComponents.div`${styledSystem}`;
+const BoxMaterialSystem = styledComponents('div')(materialSystem);
+const BoxStyledSystem = styledComponents('div')(styledSystem);
 
-const materialSystemTheme = createMuiTheme({
-  typography: {
-    useNextVariants: true,
-  },
-});
+const materialSystemTheme = createMuiTheme();
 
-const styledSystemTheme = createMuiTheme({
-  typography: {
-    useNextVariants: true,
-  },
-});
-styledSystemTheme.breakpoints = null;
+const styledSystemTheme = createMuiTheme();
+styledSystemTheme.breakpoints = ['40em', '52em', '64em'];
 styledSystemTheme.colors = styledSystemTheme.palette;
 styledSystemTheme.fontSizes = styledSystemTheme.typography;
 styledSystemTheme.fonts = styledSystemTheme.typography;
@@ -145,7 +132,7 @@ suite
   // // ---
   .add('Box emotion', () => {
     ReactDOMServer.renderToString(
-      <EmotionTheme theme={styledSystemTheme}>
+      <EmotionTheme theme={materialSystemTheme}>
         <BoxEmotion
           color="primary.main"
           bgcolor="background.paper"
@@ -191,7 +178,23 @@ suite
       </StyledComponentsThemeProvider>,
     );
   })
-  .on('cycle', event => {
+  .add('Naked styled-components', () => {
+    ReactDOMServer.renderToString(
+      <StyledComponentsThemeProvider theme={materialSystemTheme}>
+        <NakedStyleComponents
+          color="primary.main"
+          bgcolor="background.paper"
+          fontFamily="h6.fontFamily"
+          fontSize={['h6.fontSize', 'h4.fontSize', 'h3.fontSize']}
+          p={[2, 3, 4]}
+          fuu={Math.round(Math.random() * 10000)}
+        >
+          styled-components
+        </NakedStyleComponents>
+      </StyledComponentsThemeProvider>,
+    );
+  })
+  .on('cycle', (event) => {
     console.log(String(event.target));
   })
   .run();

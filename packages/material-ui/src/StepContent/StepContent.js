@@ -1,12 +1,10 @@
-import React from 'react';
+import * as React from 'react';
 import PropTypes from 'prop-types';
-import warning from 'warning';
-import classNames from 'classnames';
-import { componentPropType } from '@material-ui/utils';
+import clsx from 'clsx';
 import Collapse from '../Collapse';
 import withStyles from '../styles/withStyles';
 
-export const styles = theme => ({
+export const styles = (theme) => ({
   /* Styles applied to the root element. */
   root: {
     marginTop: 8,
@@ -25,27 +23,38 @@ export const styles = theme => ({
   transition: {},
 });
 
-function StepContent(props) {
+const StepContent = React.forwardRef(function StepContent(props, ref) {
   const {
+    // eslint-disable-next-line react/prop-types
     active,
+    // eslint-disable-next-line react/prop-types
     alternativeLabel,
     children,
     classes,
     className,
+    // eslint-disable-next-line react/prop-types
     completed,
+    // eslint-disable-next-line react/prop-types
+    expanded,
+    // eslint-disable-next-line react/prop-types
     last,
+    // eslint-disable-next-line react/prop-types
     optional,
+    // eslint-disable-next-line react/prop-types
     orientation,
-    TransitionComponent,
-    transitionDuration: transitionDurationProp,
+    TransitionComponent = Collapse,
+    transitionDuration: transitionDurationProp = 'auto',
     TransitionProps,
     ...other
   } = props;
 
-  warning(
-    orientation === 'vertical',
-    'Material-UI: <StepContent /> is only designed for use with the vertical stepper.',
-  );
+  if (process.env.NODE_ENV !== 'production') {
+    if (orientation !== 'vertical') {
+      console.error(
+        'Material-UI: <StepContent /> is only designed for use with the vertical stepper.',
+      );
+    }
+  }
 
   let transitionDuration = transitionDurationProp;
 
@@ -54,9 +63,9 @@ function StepContent(props) {
   }
 
   return (
-    <div className={classNames(classes.root, { [classes.last]: last }, className)} {...other}>
+    <div className={clsx(classes.root, { [classes.last]: last }, className)} ref={ref} {...other}>
       <TransitionComponent
-        in={active}
+        in={active || expanded}
         className={classes.transition}
         timeout={transitionDuration}
         unmountOnExit
@@ -66,73 +75,50 @@ function StepContent(props) {
       </TransitionComponent>
     </div>
   );
-}
+});
 
 StepContent.propTypes = {
-  /**
-   * @ignore
-   * Expands the content.
-   */
-  active: PropTypes.bool,
-  /**
-   * @ignore
-   * Set internally by Step when it's supplied with the alternativeLabel property.
-   */
-  alternativeLabel: PropTypes.bool,
+  // ----------------------------- Warning --------------------------------
+  // | These PropTypes are generated from the TypeScript type definitions |
+  // |     To update them edit the d.ts file and run "yarn proptypes"     |
+  // ----------------------------------------------------------------------
   /**
    * Step content.
    */
   children: PropTypes.node,
   /**
    * Override or extend the styles applied to the component.
-   * See [CSS API](#css-api) below for more details.
+   * See [CSS API](#css) below for more details.
    */
-  classes: PropTypes.object.isRequired,
+  classes: PropTypes.object,
   /**
    * @ignore
    */
   className: PropTypes.string,
   /**
-   * @ignore
-   */
-  completed: PropTypes.bool,
-  /**
-   * @ignore
-   */
-  last: PropTypes.bool,
-  /**
-   * @ignore
-   * Set internally by Step when it's supplied with the optional property.
-   */
-  optional: PropTypes.bool,
-  /**
-   * @ignore
-   */
-  orientation: PropTypes.oneOf(['horizontal', 'vertical']),
-  /**
    * The component used for the transition.
+   * [Follow this guide](/components/transitions/#transitioncomponent-prop) to learn more about the requirements for this component.
    */
-  TransitionComponent: componentPropType,
+  TransitionComponent: PropTypes.elementType,
   /**
    * Adjust the duration of the content expand transition.
-   * Passed as a property to the transition component.
+   * Passed as a prop to the transition component.
    *
    * Set to 'auto' to automatically calculate transition time based on height.
    */
   transitionDuration: PropTypes.oneOfType([
-    PropTypes.number,
-    PropTypes.shape({ enter: PropTypes.number, exit: PropTypes.number }),
     PropTypes.oneOf(['auto']),
+    PropTypes.number,
+    PropTypes.shape({
+      appear: PropTypes.number,
+      enter: PropTypes.number,
+      exit: PropTypes.number,
+    }),
   ]),
   /**
-   * Properties applied to the `Transition` element.
+   * Props applied to the [`Transition`](http://reactcommunity.org/react-transition-group/transition#Transition-props) element.
    */
   TransitionProps: PropTypes.object,
-};
-
-StepContent.defaultProps = {
-  TransitionComponent: Collapse,
-  transitionDuration: 'auto',
 };
 
 export default withStyles(styles, { name: 'MuiStepContent' })(StepContent);

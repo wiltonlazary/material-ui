@@ -4,7 +4,12 @@
 
 ## z-index
 
-{{"demo": "pages/system/positions/ZIndex.js"}}
+{{"demo": "pages/system/positions/ZIndex.js", "defaultCodeOpen": false, "bg": true}}
+
+```jsx
+<Box zIndex="tooltip">
+<Box zIndex="modal">
+```
 
 ## API
 
@@ -15,7 +20,7 @@ import { positions } from '@material-ui/system';
 | Import name | Prop | CSS property | Theme key |
 |:------------|:-----|:-------------|:----------|
 | `position` | `position` | `position` | none |
-| `zIndex` | `zIndex` | `z-index` | `zIndex` |
+| `zIndex` | `zIndex` | `z-index` | [`zIndex`](/customization/default-theme/?expand-path=$.zIndex) |
 | `top` | `top` | `top` | none |
 | `right` | `right` | `right` | none |
 | `bottom` | `bottom`| `bottom` | none |

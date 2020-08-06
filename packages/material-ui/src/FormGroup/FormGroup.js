@@ -1,6 +1,6 @@
-import React from 'react';
+import * as React from 'react';
 import PropTypes from 'prop-types';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import withStyles from '../styles/withStyles';
 
 export const styles = {
@@ -21,35 +21,38 @@ export const styles = {
  * It provides compact row layout.
  * For the `Radio`, you should be using the `RadioGroup` component instead of this one.
  */
-function FormGroup(props) {
-  const { classes, className, children, row, ...other } = props;
+const FormGroup = React.forwardRef(function FormGroup(props, ref) {
+  const { classes, className, row = false, ...other } = props;
 
   return (
     <div
-      className={classNames(
+      className={clsx(
         classes.root,
         {
           [classes.row]: row,
         },
         className,
       )}
+      ref={ref}
       {...other}
-    >
-      {children}
-    </div>
+    />
   );
-}
+});
 
 FormGroup.propTypes = {
+  // ----------------------------- Warning --------------------------------
+  // | These PropTypes are generated from the TypeScript type definitions |
+  // |     To update them edit the d.ts file and run "yarn proptypes"     |
+  // ----------------------------------------------------------------------
   /**
    * The content of the component.
    */
   children: PropTypes.node,
   /**
    * Override or extend the styles applied to the component.
-   * See [CSS API](#css-api) below for more details.
+   * See [CSS API](#css) below for more details.
    */
-  classes: PropTypes.object.isRequired,
+  classes: PropTypes.object,
   /**
    * @ignore
    */
@@ -58,10 +61,6 @@ FormGroup.propTypes = {
    * Display group of elements in a compact row.
    */
   row: PropTypes.bool,
-};
-
-FormGroup.defaultProps = {
-  row: false,
 };
 
 export default withStyles(styles, { name: 'MuiFormGroup' })(FormGroup);

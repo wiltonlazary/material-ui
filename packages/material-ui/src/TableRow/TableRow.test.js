@@ -1,53 +1,59 @@
-import React from 'react';
-import { assert } from 'chai';
-import { createMount, findOutermostIntrinsic, getClasses } from '@material-ui/core/test-utils';
+import * as React from 'react';
+import { expect } from 'chai';
+import { getClasses } from '@material-ui/core/test-utils';
+import createMount from 'test/utils/createMount';
+import describeConformance from '../test-utils/describeConformance';
+import { createClientRender } from 'test/utils/createClientRender';
 import TableRow from './TableRow';
 
 describe('<TableRow />', () => {
-  let mount;
+  const mount = createMount();
   let classes;
-  function mountInTable(node) {
-    const wrapper = mount(
+  const render = createClientRender();
+
+  function renderInTable(node) {
+    return render(
       <table>
         <tbody>{node}</tbody>
       </table>,
     );
-    return wrapper.childAt(0).childAt(0);
   }
 
   before(() => {
-    mount = createMount();
     classes = getClasses(<TableRow />);
   });
 
-  after(() => {
-    mount.cleanUp();
-  });
+  describeConformance(<TableRow />, () => ({
+    classes,
+    inheritComponent: 'tr',
+    mount: (node) => {
+      const wrapper = mount(
+        <table>
+          <tbody>{node}</tbody>
+        </table>,
+      );
+      return wrapper.find('tbody').childAt(0);
+    },
 
-  it('should render a tr', () => {
-    const wrapper = mountInTable(<TableRow />);
-    assert.strictEqual(wrapper.getDOMNode().nodeName, 'TR');
-  });
-
-  it('should render a div', () => {
-    const wrapper = mount(<TableRow component="div" />);
-    assert.strictEqual(wrapper.getDOMNode().nodeName, 'DIV');
-  });
-
-  it('should spread custom props on the root node', () => {
-    const wrapper = mountInTable(<TableRow data-my-prop="woofTableRow" />);
-    assert.strictEqual(findOutermostIntrinsic(wrapper).props()['data-my-prop'], 'woofTableRow');
-  });
-
-  it('should render with the user and root classes', () => {
-    const wrapper = mountInTable(<TableRow className="woofTableRow" />);
-    assert.strictEqual(findOutermostIntrinsic(wrapper).hasClass('woofTableRow'), true);
-    assert.strictEqual(findOutermostIntrinsic(wrapper).hasClass(classes.root), true);
-  });
+    refInstanceof: window.HTMLTableRowElement,
+    testComponentPropWith: 'tr',
+  }));
 
   it('should render children', () => {
-    const children = <td className="test" />;
-    const wrapper = mountInTable(<TableRow>{children}</TableRow>);
-    assert.strictEqual(wrapper.contains(children), true);
+    const children = <td data-testid="test" />;
+    const { getByTestId } = renderInTable(<TableRow>{children}</TableRow>);
+    getByTestId('test');
+  });
+
+  describe('prop: component', () => {
+    it('can render a different component', () => {
+      const { container } = render(<TableRow component="div" />);
+      expect(container.firstChild).to.have.property('nodeName', 'DIV');
+    });
+
+    it('sets role="rowgroup"', () => {
+      const { container } = render(<TableRow component="div" />);
+      expect(container.firstChild).to.have.attribute('role', 'row');
+    });
   });
 });

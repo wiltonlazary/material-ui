@@ -1,4 +1,5 @@
 /* eslint-env serviceworker */
+// https://github.com/airbnb/javascript/issues/1632
 /* eslint-disable no-restricted-globals */
 /* global workbox */
 
@@ -10,9 +11,9 @@ workbox.core.setCacheNameDetails({
   prefix: 'mui',
 });
 
-workbox.precaching.precacheAndRoute([]);
+workbox.routing.registerRoute(/(\/|\.js)$/, workbox.strategies.staleWhileRevalidate());
 
-self.addEventListener('message', event => {
+self.addEventListener('message', (event) => {
   switch (event.data) {
     case 'skipWaiting':
       // console.log('self.skipWaiting()');

@@ -1,15 +1,13 @@
-/* eslint-disable react/forbid-foreign-prop-types */
-
 import { parse as parseDoctrine } from 'doctrine';
-import recast from 'recast';
+import * as recast from 'recast';
 import { parse as docgenParse } from 'react-docgen';
-import { _rewriteUrlForNextExport } from 'next/router';
+import { rewriteUrlForNextExport } from 'next/dist/next-server/lib/router/rewrite-url-for-export';
 import { pageToTitle } from './helpers';
+import { SOURCE_CODE_ROOT_URL, LANGUAGES_IN_PROGRESS } from 'docs/src/modules/constants';
 
-const SOURCE_CODE_ROOT_URL = 'https://github.com/mui-org/material-ui/blob/master';
 const PATH_REPLACE_REGEX = /\\/g;
 const PATH_SEPARATOR = '/';
-const TRANSLATIONS = ['zh'];
+const DEMO_IGNORE = LANGUAGES_IN_PROGRESS.map((language) => `-${language}.md`);
 
 function normalizePath(path) {
   return path.replace(PATH_REPLACE_REGEX, PATH_SEPARATOR);
@@ -36,20 +34,30 @@ function getDeprecatedInfo(type) {
 }
 
 function getChained(type) {
-  const marker = 'chainPropTypes';
-  const indexStart = type.raw.indexOf(marker);
+  if (type.raw) {
+    const marker = 'chainPropTypes';
+    const indexStart = type.raw.indexOf(marker);
 
-  if (indexStart !== -1) {
-    const parsed = docgenParse(`
-      import PropTypes from 'prop-types';
-      const Foo = () => <div />
-      Foo.propTypes = {
-        bar: ${recast.print(recast.parse(type.raw).program.body[0].expression.arguments[0]).code}
-      }
-      export default Foo
-    `);
-
-    return parsed.props.bar.type;
+    if (indexStart !== -1) {
+      const parsed = docgenParse(
+        `
+        import PropTypes from 'prop-types';
+        const Foo = () => <div />
+        Foo.propTypes = {
+          bar: ${recast.print(recast.parse(type.raw).program.body[0].expression.arguments[0]).code}
+        }
+        export default Foo
+      `,
+        null,
+        null,
+        // helps react-docgen pickup babel.config.js
+        { filename: './' },
+      );
+      return {
+        type: parsed.props.bar.type,
+        required: parsed.props.bar.required,
+      };
+    }
   }
 
   return false;
@@ -57,13 +65,45 @@ function getChained(type) {
 
 function escapeCell(value) {
   // As the pipe is use for the table structure
-  return value
-    .replace(/</g, '&lt;')
-    .replace(/`&lt;/g, '`<')
-    .replace(/\|/g, '\\|');
+  return value.replace(/</g, '&lt;').replace(/`&lt;/g, '`<').replace(/\|/g, '\\|');
 }
 
-function generatePropDescription(description, type) {
+function isElementTypeAcceptingRefProp(type) {
+  return type.raw === 'elementTypeAcceptingRef';
+}
+
+function isRefType(type) {
+  return type.raw === 'refType';
+}
+
+function isElementAcceptingRefProp(type) {
+  return /^elementAcceptingRef/.test(type.raw);
+}
+
+function resolveType(type) {
+  if (type.type === 'AllLiteral') {
+    return 'any';
+  }
+
+  if (type.type === 'TypeApplication') {
+    const arrayTypeName = resolveType(type.applications[0]);
+    return `${arrayTypeName}[]`;
+  }
+
+  if (type.type === 'UnionType') {
+    return type.elements.map((t) => resolveType(t)).join(' \\| ');
+  }
+
+  if (type.type === 'StringLiteralType') {
+    return type.value;
+  }
+
+  return type.name;
+}
+
+function generatePropDescription(prop) {
+  const { description } = prop;
+  const type = prop.flowType || prop.type;
   let deprecated = '';
 
   if (type.name === 'custom') {
@@ -80,11 +120,10 @@ function generatePropDescription(description, type) {
   // Two new lines result in a newline in the table.
   // All other new lines must be eliminated to prevent markdown mayhem.
   const jsDocText = escapeCell(parsed.description)
-    .replace(/\n\n/g, '<br>')
-    .replace(/\n/g, ' ')
-    .replace(/\r/g, '');
+    .replace(/(\r?\n){2}/g, '<br>')
+    .replace(/\r?\n/g, ' ');
 
-  if (parsed.tags.some(tag => tag.title === 'ignore')) {
+  if (parsed.tags.some((tag) => tag.title === 'ignore')) {
     return null;
   }
 
@@ -92,7 +131,7 @@ function generatePropDescription(description, type) {
 
   if (type.name === 'func' && parsed.tags.length > 0) {
     // Remove new lines from tag descriptions to avoid markdown errors.
-    parsed.tags.forEach(tag => {
+    parsed.tags.forEach((tag) => {
       if (tag.description) {
         tag.description = tag.description.replace(/\r*\n/g, ' ');
       }
@@ -114,45 +153,59 @@ function generatePropDescription(description, type) {
 
     signature += '<br><br>**Signature:**<br>`function(';
     signature += parsedArgs
-      .map(tag => {
-        if (tag.type.type === 'AllLiteral') {
-          return `${tag.name}: any`;
-        }
-
+      .map((tag) => {
         if (tag.type.type === 'OptionalType') {
           return `${tag.name}?: ${tag.type.expression.name}`;
         }
 
-        return `${tag.name}: ${tag.type.name}`;
+        return `${tag.name}: ${resolveType(tag.type)}`;
       })
       .join(', ');
     signature += `) => ${parsedReturns.type.name}\`<br>`;
-    signature += parsedArgs.map(tag => `*${tag.name}:* ${tag.description}`).join('<br>');
+    signature += parsedArgs
+      .filter((tag) => tag.description)
+      .map((tag) => `*${tag.name}:* ${tag.description}`)
+      .join('<br>');
     if (parsedReturns.description) {
       signature += `<br> *returns* (${parsedReturns.type.name}): ${parsedReturns.description}`;
     }
   }
 
-  return `${deprecated}${jsDocText}${signature}`;
+  let notes = '';
+  if (isElementAcceptingRefProp(type) || isElementTypeAcceptingRefProp(type)) {
+    notes += '<br>⚠️ [Needs to be able to hold a ref](/guides/composition/#caveat-with-refs).';
+  }
+
+  return `${deprecated}${jsDocText}${signature}${notes}`;
 }
 
 function generatePropType(type) {
   switch (type.name) {
     case 'custom': {
+      if (isElementTypeAcceptingRefProp(type)) {
+        return `element type`;
+      }
+      if (isElementAcceptingRefProp(type)) {
+        return `element`;
+      }
+      if (isRefType(type)) {
+        return `ref`;
+      }
+      if (type.raw === 'HTMLElementType') {
+        return `HTML element`;
+      }
+
       const deprecatedInfo = getDeprecatedInfo(type);
       if (deprecatedInfo !== false) {
         return generatePropType({
+          // eslint-disable-next-line react/forbid-foreign-prop-types
           name: deprecatedInfo.propTypes,
         });
       }
 
       const chained = getChained(type);
       if (chained !== false) {
-        return generatePropType(chained);
-      }
-
-      if (type.raw === 'componentProp') {
-        return 'Component';
+        return generatePropType(chained.type);
       }
 
       return type.raw;
@@ -160,7 +213,7 @@ function generatePropType(type) {
 
     case 'shape':
       return `{ ${Object.keys(type.value)
-        .map(subValue => {
+        .map((subValue) => {
           const subType = type.value[subValue];
           return `${subValue}${subType.required ? '' : '?'}: ${generatePropType(subType)}`;
         })
@@ -168,22 +221,31 @@ function generatePropType(type) {
 
     case 'union':
     case 'enum': {
-      let values = type.value.map(type2 => {
-        if (type.name === 'enum') {
-          return escapeCell(type2.value);
-        }
+      return (
+        type.value
+          .map((type2) => {
+            if (type.name === 'enum') {
+              return escapeCell(type2.value);
+            }
 
-        return generatePropType(type2);
-      });
-
-      // Display one value per line as it's better for visibility.
-      if (values.length < 5) {
-        values = values.join('&nbsp;&#124;<br>&nbsp;');
-      } else {
-        values = values.join(', ');
-      }
-      return `${type.name}:&nbsp;${values}<br>`;
+            return generatePropType(type2);
+          })
+          // Display one value per line as it's better for visibility.
+          .join('<br>&#124;&nbsp;')
+      );
     }
+
+    case 'arrayOf': {
+      return `Array&lt;${generatePropType(type.value)}&gt;`;
+    }
+
+    case 'instanceOf': {
+      if (type.value.startsWith('typeof')) {
+        return /typeof (.*) ===/.exec(type.value)[1];
+      }
+      return type.value;
+    }
+
     default:
       return type.name;
   }
@@ -201,6 +263,21 @@ function getProp(props, key) {
   }
 }
 
+function generateName(reactAPI) {
+  if (!reactAPI.styles.classes.length) {
+    return '\n';
+  }
+
+  if (!reactAPI.styles.name) {
+    throw new Error(`Missing styles name on ${reactAPI.name} component`);
+  }
+
+  return `## Component name
+
+The \`${reactAPI.styles.name}\` name can be used for providing [default props](/customization/globals/#default-props) or [style overrides](/customization/globals/#css) at the theme level.
+`;
+}
+
 function generateProps(reactAPI) {
   const header = '## Props';
 
@@ -213,16 +290,16 @@ function generateProps(reactAPI) {
     const prop = getProp(reactAPI.props, propRaw);
 
     if (typeof prop.description === 'undefined') {
-      throw new Error(`The "${propRaw}"" property is missing a description`);
+      throw new Error(`The "${propRaw}" prop is missing a description`);
     }
 
-    const description = generatePropDescription(prop.description, prop.flowType || prop.type);
+    const description = generatePropDescription(prop);
 
     if (description === null) {
       return textProps;
     }
 
-    let defaultValue = '\u00a0';
+    let defaultValue = '';
 
     if (prop.defaultValue) {
       defaultValue = `<span class="prop-default">${escapeCell(
@@ -230,8 +307,19 @@ function generateProps(reactAPI) {
       )}</span>`;
     }
 
-    if (prop.required) {
-      propRaw = `<span class="prop-name required">${propRaw}\u00a0*</span>`;
+    // Give up
+    if (defaultValue.length > 180) {
+      defaultValue = '';
+    }
+
+    const chainedPropType = getChained(prop.type);
+
+    if (
+      prop.required ||
+      /\.isRequired/.test(prop.type.raw) ||
+      (chainedPropType !== false && chainedPropType.required)
+    ) {
+      propRaw = `<span class="prop-name required">${propRaw}<abbr title="required">*</abbr></span>`;
     } else {
       propRaw = `<span class="prop-name">${propRaw}</span>`;
     }
@@ -249,14 +337,28 @@ function generateProps(reactAPI) {
     return textProps;
   }, text);
 
-  text = `${text}
-Any other properties supplied will be spread to the root element (${
-    reactAPI.inheritance
-      ? `[${reactAPI.inheritance.component}](${_rewriteUrlForNextExport(
-          reactAPI.inheritance.pathname,
-        )})`
-      : 'native element'
-  }).`;
+  let refHint = 'The `ref` is forwarded to the root element.';
+  if (reactAPI.forwardsRefTo == null) {
+    refHint = 'The component cannot hold a ref.';
+  } else if (reactAPI.forwardsRefTo === 'React.Component') {
+    refHint = 'The `ref` is attached to a component class.';
+  } else if (reactAPI.forwardsRefTo === 'Object') {
+    refHint = `The \`ref\` is attached to an Imperative Handle. Have a look at the [implementation of the component](${SOURCE_CODE_ROOT_URL}${normalizePath(
+      reactAPI.filename,
+    )}) for more detail.`;
+  }
+  text = `${text}\n${refHint}\n`;
+
+  if (reactAPI.spread) {
+    text = `${text}
+Any other props supplied will be provided to the root element (${
+      reactAPI.inheritance
+        ? `[${reactAPI.inheritance.component}](${rewriteUrlForNextExport(
+            reactAPI.inheritance.pathname,
+          )})`
+        : 'native element'
+    }).`;
+  }
 
   return text;
 }
@@ -271,39 +373,40 @@ function generateClasses(reactAPI) {
   }
 
   let text = '';
-  if (Object.keys(reactAPI.styles.descriptions).length) {
-    text = `
-| Name | Description |
-|:-----|:------------|\n`;
-    text += reactAPI.styles.classes
-      .map(
-        className =>
-          `| <span class="prop-name">${className}</span> | ${
-            reactAPI.styles.descriptions[className]
-              ? escapeCell(reactAPI.styles.descriptions[className])
-              : ''
-          }`,
-      )
-      .join('\n');
-  } else {
-    text = reactAPI.styles.classes.map(className => `- \`${className}\``).join('\n');
-  }
+
+  text = `| Rule name | Global class | Description |
+|:-----|:-------------|:------------|\n`;
+  text += reactAPI.styles.classes
+    .map((styleRule) => {
+      if (styleRule === '@global') {
+        return '| <span class="prop-name">@global</span> | | Apply global styles.';
+      }
+
+      const description = reactAPI.styles.descriptions[styleRule];
+
+      if (typeof description === 'undefined' && ['Grid', 'Paper'].indexOf(reactAPI.name) === -1) {
+        throw new Error(`The "${styleRule}" style rule is missing a description`);
+      }
+
+      return `| <span class="prop-name">${styleRule}</span> | <span class="prop-name">.${
+        reactAPI.styles.globalClasses[styleRule]
+      }</span> | ${description ? escapeCell(description) : ''}`;
+    })
+    .join('\n');
 
   return `## CSS
 
-You can override all the class names injected by Material-UI thanks to the \`classes\` property.
-This property accepts the following keys:
-
 ${text}
 
-Have a look at [overriding with classes](/customization/overrides/#overriding-with-classes) section
-and the [implementation of the component](${SOURCE_CODE_ROOT_URL}${normalizePath(
-    reactAPI.filename,
-  )})
-for more detail.
+You can override the style of the component thanks to one of these customization points:
 
-If using the \`overrides\` [key of the theme](/customization/themes/#css),
-you need to use the following style sheet name: \`${reactAPI.styles.name}\`.
+- With a rule name of the [\`classes\` object prop](/customization/components/#overriding-styles-with-classes).
+- With a [global class name](/customization/components/#overriding-styles-with-global-class-names).
+- With a theme and an [\`overrides\` property](/customization/globals/#css).
+
+If that's not sufficient, you can check the [implementation of the component](${SOURCE_CODE_ROOT_URL}${normalizePath(
+    reactAPI.filename,
+  )}) for more detail.
 
 `;
 }
@@ -322,17 +425,13 @@ function generateInheritance(reactAPI) {
       suffix = ', from react-transition-group,';
       break;
 
-    case 'EventListener':
-      suffix = ', from react-event-listener,';
-      break;
-
     default:
       break;
   }
 
   return `## Inheritance
 
-The properties of the [${inheritance.component}](${_rewriteUrlForNextExport(
+The props of the [${inheritance.component}](${rewriteUrlForNextExport(
     inheritance.pathname,
   )}) component${suffix} are also available.
 You can take advantage of this behavior to [target nested components](/guides/api/#spread).
@@ -342,10 +441,7 @@ You can take advantage of this behavior to [target nested components](/guides/ap
 
 function generateDemos(reactAPI) {
   const pagesMarkdown = reactAPI.pagesMarkdown.reduce((accumulator, page) => {
-    if (
-      !TRANSLATIONS.includes(page.filename.slice(-5, -3)) &&
-      page.components.includes(reactAPI.name)
-    ) {
+    if (!DEMO_IGNORE.includes(page.filename.slice(-6)) && page.components.includes(reactAPI.name)) {
       accumulator.push(page);
     }
 
@@ -359,8 +455,8 @@ function generateDemos(reactAPI) {
   return `## Demos
 
 ${pagesMarkdown
-    .map(page => `- [${pageToTitle(page)}](${_rewriteUrlForNextExport(page.pathname)})`)
-    .join('\n')}
+  .map((page) => `- [${pageToTitle(page)}](${rewriteUrlForNextExport(page.pathname)})`)
+  .join('\n')}
 
 `;
 }
@@ -372,13 +468,17 @@ function generateImportStatement(reactAPI) {
       /\/packages\/material-ui(-(.+?))?\/src/,
       (match, dash, pkg) => `@material-ui/${pkg || 'core'}`,
     )
-    // convert things like `Table/Table.js` to `Table`
-    .replace(/([^/]+)\/\1\.js$/, '$1')
-    // strip off trailing `.js` if any
-    .replace(/\.js$/, '');
-  return `\`\`\`js
-import ${reactAPI.name} from '${source}';
-\`\`\``;
+    // convert things like `/Table/Table.js` to ``
+    .replace(/\/([^/]+)\/\1\.js$/, '');
+  return `## Import
+
+\`\`\`js
+import ${reactAPI.name} from '${source}/${reactAPI.name}';
+// or
+import { ${reactAPI.name} } from '${source}';
+\`\`\`
+
+You can learn more about the difference by [reading this guide](/guides/minimizing-bundle-size/).`;
 }
 
 export default function generateMarkdown(reactAPI) {
@@ -390,12 +490,13 @@ export default function generateMarkdown(reactAPI) {
     `# ${reactAPI.name} API`,
     '',
     `<p class="description">The API documentation of the ${reactAPI.name} React component. ` +
-      'Learn more about the properties and the CSS customization points.</p>',
+      'Learn more about the props and the CSS customization points.</p>',
     '',
     generateImportStatement(reactAPI),
     '',
     reactAPI.description,
     '',
+    generateName(reactAPI),
     generateProps(reactAPI),
     '',
     `${generateClasses(reactAPI)}${generateInheritance(reactAPI)}${generateDemos(reactAPI)}`,

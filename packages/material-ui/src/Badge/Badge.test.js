@@ -1,166 +1,173 @@
-import React from 'react';
-import { assert } from 'chai';
-import { createShallow, getClasses } from '@material-ui/core/test-utils';
+import * as React from 'react';
+import { expect } from 'chai';
+import { getClasses } from '@material-ui/core/test-utils';
+import createMount from 'test/utils/createMount';
+import { createClientRender } from 'test/utils/createClientRender';
+import describeConformance from '../test-utils/describeConformance';
 import Badge from './Badge';
 
+function findBadge(container) {
+  return container.firstChild.querySelector('span');
+}
+
 describe('<Badge />', () => {
-  let shallow;
+  const mount = createMount();
   let classes;
+  const render = createClientRender();
+  const defaultProps = {
+    children: (
+      <div className="unique" data-testid="children">
+        Hello World
+      </div>
+    ),
+    badgeContent: 10,
+  };
 
   before(() => {
-    shallow = createShallow({ dive: true });
-    classes = getClasses(<Badge badgeContent={1}>Hello World</Badge>);
+    classes = getClasses(<Badge {...defaultProps} />);
   });
 
-  const testChildren = <div className="unique">Hello World</div>;
+  describeConformance(
+    <Badge>
+      <div />
+    </Badge>,
+    () => ({
+      classes,
+      inheritComponent: 'span',
+      mount,
+      refInstanceof: window.HTMLSpanElement,
+      testComponentPropWith: 'div',
+    }),
+  );
 
   it('renders children and badgeContent', () => {
-    const wrapper = shallow(<Badge badgeContent={10}>{testChildren}</Badge>);
-
-    assert.strictEqual(wrapper.contains(testChildren), true);
-    assert.strictEqual(wrapper.find('span').length, 2);
+    const children = <div id="child" data-testid="child" />;
+    const badge = <div id="badge" data-testid="badge" />;
+    const { container, getByTestId } = render(<Badge badgeContent={badge}>{children}</Badge>);
+    expect(container.firstChild).to.contain(getByTestId('child'));
+    expect(container.firstChild).to.contain(getByTestId('badge'));
   });
 
   it('renders children and overwrite badge class', () => {
     const badgeClassName = 'testBadgeClassName';
-
-    const wrapper = shallow(
-      <Badge badgeContent={10} classes={{ badge: badgeClassName }}>
-        {testChildren}
-      </Badge>,
-    );
-
-    assert.strictEqual(wrapper.contains(testChildren), true);
-    assert.strictEqual(
-      wrapper
-        .find('span')
-        .at(1)
-        .hasClass('testBadgeClassName'),
-      true,
-    );
+    const { container } = render(<Badge {...defaultProps} classes={{ badge: badgeClassName }} />);
+    expect(findBadge(container)).to.have.class(badgeClassName);
   });
 
-  it('renders children by default', () => {
-    const wrapper = shallow(<Badge badgeContent={10}>{testChildren}</Badge>);
-
-    assert.strictEqual(wrapper.contains(testChildren), true);
+  it('renders children', () => {
+    const { container, getByTestId } = render(
+      <Badge className="testClassName" {...defaultProps} />,
+    );
+    expect(container.firstChild).to.contain(getByTestId('children'));
   });
 
-  it('renders children and className', () => {
-    const wrapper = shallow(
-      <Badge badgeContent={10} className="testClassName">
-        {testChildren}
-      </Badge>,
-    );
+  describe('prop: color', () => {
+    it('should have the colorPrimary class when color="primary"', () => {
+      const { container } = render(<Badge {...defaultProps} color="primary" />);
+      expect(findBadge(container)).to.have.class(classes.colorPrimary);
+    });
 
-    assert.strictEqual(wrapper.contains(testChildren), true);
-    assert.strictEqual(wrapper.is('.testClassName'), true);
-  });
+    it('should have the colorSecondary class when color="secondary"', () => {
+      const { container } = render(<Badge {...defaultProps} color="secondary" />);
+      expect(findBadge(container)).to.have.class(classes.colorSecondary);
+    });
 
-  it('renders children and have primary styles', () => {
-    const wrapper = shallow(
-      <Badge badgeContent={10} color="primary">
-        {testChildren}
-      </Badge>,
-    );
-
-    assert.strictEqual(wrapper.contains(testChildren), true);
-    assert.strictEqual(
-      wrapper
-        .find('span')
-        .at(1)
-        .hasClass(classes.colorPrimary),
-      true,
-    );
-  });
-
-  it('renders children and have secondary styles', () => {
-    const wrapper = shallow(
-      <Badge badgeContent={10} color="secondary">
-        {testChildren}
-      </Badge>,
-    );
-
-    assert.strictEqual(wrapper.contains(testChildren), true);
-    assert.strictEqual(
-      wrapper
-        .find('span')
-        .at(1)
-        .hasClass(classes.colorSecondary),
-      true,
-    );
-  });
-
-  it('have error class', () => {
-    const wrapper = shallow(
-      <Badge badgeContent={10} color="error">
-        <span />
-      </Badge>,
-    );
-
-    assert.strictEqual(
-      wrapper
-        .find('span')
-        .at(2)
-        .hasClass(classes.colorError),
-      true,
-    );
-  });
-
-  it('renders children and overwrite root styles', () => {
-    const style = { backgroundColor: 'red' };
-    const wrapper = shallow(
-      <Badge badgeContent={10} style={style}>
-        {testChildren}
-      </Badge>,
-    );
-
-    assert.strictEqual(wrapper.contains(testChildren), true);
-    assert.strictEqual(wrapper.props().style.backgroundColor, style.backgroundColor);
+    it('should have the colorError class when color="error"', () => {
+      const { container } = render(<Badge {...defaultProps} color="error" />);
+      expect(findBadge(container)).to.have.class(classes.colorError);
+    });
   });
 
   describe('prop: invisible', () => {
     it('should default to false', () => {
-      const wrapper = shallow(<Badge badgeContent={10}>{testChildren}</Badge>);
-      assert.strictEqual(
-        wrapper
-          .find('span')
-          .at(1)
-          .hasClass(classes.invisible),
-        false,
-      );
+      const { container } = render(<Badge {...defaultProps} />);
+      expect(findBadge(container)).to.not.have.class(classes.invisible);
     });
 
     it('should render without the invisible class when set to false', () => {
-      const wrapper = shallow(
-        <Badge badgeContent={10} invisible={false}>
-          {testChildren}
-        </Badge>,
-      );
-
-      assert.strictEqual(
-        wrapper
-          .find('span')
-          .at(1)
-          .hasClass(classes.invisible),
-        false,
-      );
+      const { container } = render(<Badge {...defaultProps} invisible={false} />);
+      expect(findBadge(container)).to.not.have.class(classes.invisible);
     });
 
     it('should render with the invisible class when set to true', () => {
-      const wrapper = shallow(
-        <Badge badgeContent={10} invisible>
-          {testChildren}
-        </Badge>,
-      );
+      const { container } = render(<Badge {...defaultProps} invisible />);
+      expect(findBadge(container)).to.have.class(classes.invisible);
+    });
 
-      assert.strictEqual(
-        wrapper
-          .find('span')
-          .at(1)
-          .hasClass(classes.invisible),
-        true,
-      );
+    it('should render with the invisible class when empty and not dot', () => {
+      let container;
+      container = render(<Badge {...defaultProps} badgeContent={null} />).container;
+      expect(findBadge(container)).to.have.class(classes.invisible);
+      container = render(<Badge {...defaultProps} badgeContent={undefined} />).container;
+      expect(findBadge(container)).to.have.class(classes.invisible);
+      container = render(<Badge {...defaultProps} badgeContent={undefined} variant="dot" />)
+        .container;
+      expect(findBadge(container)).to.not.have.class(classes.invisible);
+    });
+  });
+
+  describe('prop: showZero', () => {
+    it('should default to false', () => {
+      const { container } = render(<Badge {...defaultProps} badgeContent={0} />);
+      expect(findBadge(container)).to.have.class(classes.invisible);
+    });
+
+    it('should render without the invisible class when false and badgeContent is not 0', () => {
+      const { container } = render(<Badge {...defaultProps} showZero />);
+      expect(findBadge(container)).to.not.have.class(classes.invisible);
+    });
+
+    it('should render without the invisible class when true and badgeContent is 0', () => {
+      const { container } = render(<Badge {...defaultProps} badgeContent={0} showZero />);
+      expect(findBadge(container)).to.not.have.class(classes.invisible);
+    });
+
+    it('should render with the invisible class when false and badgeContent is 0', () => {
+      const { container } = render(<Badge {...defaultProps} badgeContent={0} showZero={false} />);
+      expect(findBadge(container)).to.have.class(classes.invisible);
+    });
+  });
+
+  describe('prop: variant', () => {
+    it('should default to standard', () => {
+      const { container } = render(<Badge {...defaultProps} />);
+      expect(findBadge(container)).to.have.class(classes.badge);
+      expect(findBadge(container)).to.not.have.class(classes.dot);
+    });
+
+    it('should render with the standard class when variant="standard"', () => {
+      const { container } = render(<Badge {...defaultProps} variant="standard" />);
+      expect(findBadge(container)).to.have.class(classes.badge);
+      expect(findBadge(container)).to.not.have.class(classes.dot);
+    });
+
+    it('should not render badgeContent when variant="dot"', () => {
+      const { container } = render(<Badge {...defaultProps} variant="dot" />);
+      expect(findBadge(container)).to.have.class(classes.badge);
+      expect(findBadge(container)).to.have.class(classes.dot);
+      expect(findBadge(container)).to.have.text('');
+    });
+  });
+
+  describe('prop: max', () => {
+    it('should default to 99', () => {
+      const { container } = render(<Badge {...defaultProps} badgeContent={100} />);
+      expect(findBadge(container)).to.have.text('99+');
+    });
+
+    it('should cap badgeContent', () => {
+      const { container } = render(<Badge {...defaultProps} badgeContent={1000} max={999} />);
+      expect(findBadge(container)).to.have.text('999+');
+    });
+
+    it('should not cap if badgeContent and max are equal', () => {
+      const { container } = render(<Badge {...defaultProps} badgeContent={1000} max={1000} />);
+      expect(findBadge(container)).to.have.text('1000');
+    });
+
+    it('should not cap if badgeContent is lower than max', () => {
+      const { container } = render(<Badge {...defaultProps} badgeContent={50} max={1000} />);
+      expect(findBadge(container)).to.have.text('50');
     });
   });
 });

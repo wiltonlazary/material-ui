@@ -1,44 +1,25 @@
-/* eslint-disable jsx-a11y/anchor-is-valid */
-
 import React from 'react';
-import PropTypes from 'prop-types';
-import Button from '@material-ui/core/Button';
+import Container from '@material-ui/core/Container';
 import Typography from '@material-ui/core/Typography';
-import { withStyles } from '@material-ui/core/styles';
-import Link from 'next/link';
+import Box from '@material-ui/core/Box';
+import Button from '@material-ui/core/Button';
+import ProTip from '../src/ProTip';
+import Link from '../src/Link';
+import Copyright from '../src/Copyright';
 
-const styles = theme => ({
-  root: {
-    textAlign: 'center',
-    paddingTop: theme.spacing.unit * 20,
-  },
-});
-
-function About(props) {
-  const { classes } = props;
-
+export default function About() {
   return (
-    <div className={classes.root}>
-      <Typography variant="h4" gutterBottom>
-        Material-UI
-      </Typography>
-      <Typography variant="subtitle1" gutterBottom>
-        about page
-      </Typography>
-      <Typography gutterBottom>
-        <Link href="/">
-          <a>Go to the main page</a>
-        </Link>
-      </Typography>
-      <Button variant="contained" color="primary">
-        Do nothing button
-      </Button>
-    </div>
+    <Container maxWidth="sm">
+      <Box my={4}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Next.js example
+        </Typography>
+        <Button variant="contained" color="primary" component={Link} naked href="/">
+          Go to the main page
+        </Button>
+        <ProTip />
+        <Copyright />
+      </Box>
+    </Container>
   );
 }
-
-About.propTypes = {
-  classes: PropTypes.object.isRequired,
-};
-
-export default withStyles(styles)(About);

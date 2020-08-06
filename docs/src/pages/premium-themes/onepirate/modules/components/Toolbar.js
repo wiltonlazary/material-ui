@@ -1,8 +1,7 @@
-import React from 'react';
 import { withStyles } from '@material-ui/core/styles';
-import MuiToolbar from '@material-ui/core/Toolbar';
+import Toolbar from '@material-ui/core/Toolbar';
 
-export const styles = theme => ({
+export const styles = (theme) => ({
   root: {
     height: 64,
     [theme.breakpoints.up('sm')]: {
@@ -10,9 +9,5 @@ export const styles = theme => ({
     },
   },
 });
-
-function Toolbar(props) {
-  return <MuiToolbar {...props} />;
-}
 
 export default withStyles(styles)(Toolbar);

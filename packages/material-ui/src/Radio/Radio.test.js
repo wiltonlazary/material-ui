@@ -1,50 +1,99 @@
-import React from 'react';
-import { assert } from 'chai';
-import RadioButtonCheckedIcon from '../internal/svg-icons/RadioButtonChecked';
-import RadioButtonUncheckedIcon from '../internal/svg-icons/RadioButtonUnchecked';
-import { getClasses, createShallow, createMount } from '@material-ui/core/test-utils';
-import SwitchBase from '../internal/SwitchBase';
+import * as React from 'react';
+import { expect } from 'chai';
+import { getClasses } from '@material-ui/core/test-utils';
+import createMount from 'test/utils/createMount';
+import describeConformance from '@material-ui/core/test-utils/describeConformance';
+import { createClientRender } from 'test/utils/createClientRender';
+import FormControl from '../FormControl';
+import IconButton from '../IconButton';
 import Radio from './Radio';
 
 describe('<Radio />', () => {
-  let shallow;
+  const render = createClientRender();
   let classes;
-  let mount;
+  const mount = createMount();
 
   before(() => {
-    shallow = createShallow({ dive: true });
     classes = getClasses(<Radio />);
-    mount = createMount();
   });
 
-  after(() => {
-    mount.cleanUp();
-  });
+  describeConformance(<Radio />, () => ({
+    classes,
+    inheritComponent: IconButton,
+    mount,
+    refInstanceof: window.HTMLSpanElement,
+    skip: ['componentProp'],
+  }));
 
   describe('styleSheet', () => {
     it('should have the classes required for SwitchBase', () => {
-      assert.strictEqual(typeof classes.root, 'string');
-      assert.strictEqual(typeof classes.checked, 'string');
-      assert.strictEqual(typeof classes.disabled, 'string');
+      expect(typeof classes.root).to.equal('string');
+      expect(typeof classes.checked).to.equal('string');
+      expect(typeof classes.disabled).to.equal('string');
     });
-  });
-
-  it('should be using SwitchBase', () => {
-    const wrapper = shallow(<Radio />);
-    assert.strictEqual(wrapper.type(), SwitchBase);
   });
 
   describe('prop: unchecked', () => {
     it('should render an unchecked icon', () => {
-      const wrapper = mount(<Radio />);
-      assert.strictEqual(wrapper.find(RadioButtonUncheckedIcon).length, 1);
+      const { container } = render(<Radio />);
+      expect(
+        container.querySelectorAll('svg[data-mui-test="RadioButtonUncheckedIcon"]').length,
+      ).to.equal(1);
     });
   });
 
   describe('prop: checked', () => {
     it('should render a checked icon', () => {
-      const wrapper = mount(<Radio checked />);
-      assert.strictEqual(wrapper.find(RadioButtonCheckedIcon).length, 1);
+      const { container } = render(<Radio checked />);
+      expect(
+        container.querySelectorAll('svg[data-mui-test="RadioButtonCheckedIcon"]').length,
+      ).to.equal(1);
+    });
+  });
+
+  describe('with FormControl', () => {
+    describe('enabled', () => {
+      it('should not have the disabled class', () => {
+        const { getByRole } = render(
+          <FormControl>
+            <Radio />
+          </FormControl>,
+        );
+
+        expect(getByRole('radio')).not.to.have.attribute('disabled');
+      });
+
+      it('should be overridden by props', () => {
+        const { getByRole } = render(
+          <FormControl>
+            <Radio disabled />
+          </FormControl>,
+        );
+
+        expect(getByRole('radio')).to.have.attribute('disabled');
+      });
+    });
+
+    describe('disabled', () => {
+      it('should have the disabled class', () => {
+        const { getByRole } = render(
+          <FormControl disabled>
+            <Radio />
+          </FormControl>,
+        );
+
+        expect(getByRole('radio')).to.have.attribute('disabled');
+      });
+
+      it('should be overridden by props', () => {
+        const { getByRole } = render(
+          <FormControl disabled>
+            <Radio disabled={false} />
+          </FormControl>,
+        );
+
+        expect(getByRole('radio')).not.to.have.attribute('disabled');
+      });
     });
   });
 });

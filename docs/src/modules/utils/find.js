@@ -14,7 +14,7 @@ function findPagesMarkdown(
 ) {
   const items = fs.readdirSync(directory);
 
-  items.forEach(item => {
+  items.forEach((item) => {
     const itemPath = path.resolve(directory, item);
 
     if (fs.statSync(itemPath).isDirectory()) {
@@ -32,10 +32,7 @@ function findPagesMarkdown(
       .replace('.md', '');
 
     // Remove the last pathname segment.
-    pathname = pathname
-      .split('/')
-      .slice(0, 3)
-      .join('/');
+    pathname = pathname.split('/').slice(0, 3).join('/');
 
     pagesMarkdown.push({
       // Relative location in the path (URL) system.
@@ -48,13 +45,13 @@ function findPagesMarkdown(
   return pagesMarkdown;
 }
 
-const componentRegex = /^([A-Z][a-z]+)+\.js/;
+const componentRegex = /^(Unstable_)?([A-Z][a-z]+)+\.js/;
 
 // Returns the component source in a flat array.
 function findComponents(directory, components = []) {
   const items = fs.readdirSync(directory);
 
-  items.forEach(item => {
+  items.forEach((item) => {
     const itemPath = path.resolve(directory, item);
 
     if (fs.statSync(itemPath).isDirectory()) {
@@ -77,15 +74,15 @@ function findComponents(directory, components = []) {
 const jsRegex = /\.js$/;
 const blackList = ['/.eslintrc', '/_document', '/_app'];
 
-// Returns the next.js pages available in a nested format.
+// Returns the Next.js pages available in a nested format.
 // The output is in the next.js format.
 // Each pathname is a route you can navigate to.
 function findPages(
   options = {},
-  directory = path.resolve(__dirname, '../../../../pages'),
+  directory = path.resolve(__dirname, '../../../pages'),
   pages = [],
 ) {
-  fs.readdirSync(directory).forEach(item => {
+  fs.readdirSync(directory).forEach((item) => {
     const itemPath = path.resolve(directory, item);
     const pathname = itemPath
       .replace(new RegExp(`\\${path.sep}`, 'g'), '/')
@@ -94,11 +91,14 @@ function findPages(
       .replace(/^\/index$/, '/') // Replace `index` by `/`.
       .replace(/\/index$/, '');
 
+    if (pathname.indexOf('.eslintrc') !== -1) {
+      return;
+    }
+
     if (
       options.front &&
-      pathname.indexOf('/demos') === -1 &&
-      pathname.indexOf('/api') === -1 &&
-      pathname.indexOf('/lab') === -1
+      pathname.indexOf('/components') === -1 &&
+      pathname.indexOf('/api-docs') === -1
     ) {
       return;
     }

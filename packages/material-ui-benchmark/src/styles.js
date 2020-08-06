@@ -1,6 +1,4 @@
 /* eslint-disable no-console */
-
-import './bootstrap';
 import Benchmark from 'benchmark';
 import React from 'react';
 import ReactDOMServer from 'react-dom/server';
@@ -9,12 +7,12 @@ import styledEmotion from '@emotion/styled';
 import { css } from '@emotion/core';
 import { renderStylesToString } from 'emotion-server';
 import injectSheet, { JssProvider, SheetsRegistry } from 'react-jss';
-import { withStyles, makeStyles, StylesProvider } from '@material-ui/styles';
+import { styled as styledMui, withStyles, makeStyles, StylesProvider } from '@material-ui/styles';
 import jss, { getDynamicStyles } from 'jss';
-import { unstable_Box as Box } from '@material-ui/core/Box/Box';
+import Box from '@material-ui/core/Box';
 
 const suite = new Benchmark.Suite('styles', {
-  onError: event => {
+  onError: (event) => {
     console.log(event.target.error);
   },
 });
@@ -26,7 +24,7 @@ align-items: center;
 justify-content: center;
 position: relative;
 background-color: transparent;
-outline: none;
+outline: 0;
 border: 0;
 margin: 0;
 border-radius: 0;
@@ -46,7 +44,7 @@ const cssObject = {
     position: 'relative',
     WebkitTapHighlightColor: 'transparent',
     backgroundColor: 'transparent',
-    outline: 'none',
+    outline: 0,
     border: 0,
     margin: 0,
     borderRadius: 0,
@@ -67,15 +65,16 @@ const emotionCss = css`
   ${cssContent}
 `;
 
-const JSSButton = injectSheet(cssObject)(props => (
+const JSSButton = injectSheet(cssObject)((props) => (
   <button type="button" className={props.classes.root} {...props} />
 ));
 
-const WithStylesButton = withStyles(cssObject)(props => (
+const WithStylesButton = withStyles(cssObject)((props) => (
   <button type="submit" className={props.classes.root} {...props} />
 ));
 
 const EmotionButton = styledEmotion('button')(cssObject.root);
+const StyledMuiButton = styledMui('button')(cssObject.root);
 
 const StyledComponentsButton = styledComponents.button`${cssContent}`;
 
@@ -85,10 +84,21 @@ function HookButton(props) {
   return <button type="button" className={classes.root} {...props} />;
 }
 
-const NakedButton = props => <button type="submit" {...props} />;
-const EmotionCssButton = props => <button type="submit" css={emotionCss} {...props} />;
+const NakedButton = (props) => <button type="submit" {...props} />;
+const EmotionCssButton = (props) => <button type="submit" css={emotionCss} {...props} />;
 
 suite
+  .add('StyledMuiButton', () => {
+    const sheetsRegistry = new SheetsRegistry();
+    ReactDOMServer.renderToString(
+      <StylesProvider sheetsManager={new Map()} sheetsRegistry={sheetsRegistry}>
+        {Array.from(new Array(5)).map((_, index) => (
+          <StyledMuiButton key={String(index)}>Material-UI</StyledMuiButton>
+        ))}
+      </StylesProvider>,
+    );
+    sheetsRegistry.toString();
+  })
   .add('Box', () => {
     const sheetsRegistry = new SheetsRegistry();
     ReactDOMServer.renderToString(
@@ -118,7 +128,8 @@ suite
       const dynamicSheet = jss.createStyleSheet(dynamicStyles, {
         link: true,
       });
-      dynamicSheet.update({}).attach();
+      dynamicSheet.update({});
+      dynamicSheet.attach();
       sheetsRegistry.add(dynamicSheet);
     }
 
@@ -219,7 +230,7 @@ suite
       </StylesProvider>,
     );
   })
-  .on('cycle', event => {
+  .on('cycle', (event) => {
     console.log(String(event.target));
   })
   .run();

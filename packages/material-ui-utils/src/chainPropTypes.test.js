@@ -1,4 +1,4 @@
-import { assert } from 'chai';
+import { expect } from 'chai';
 import PropTypes from 'prop-types';
 import consoleErrorMock from 'test/utils/consoleErrorMock';
 import chainPropTypes from './chainPropTypes';
@@ -11,6 +11,7 @@ describe('chainPropTypes', () => {
 
   beforeEach(() => {
     consoleErrorMock.spy();
+    PropTypes.resetWarningCache();
   });
 
   afterEach(() => {
@@ -18,10 +19,10 @@ describe('chainPropTypes', () => {
   });
 
   it('should have the right shape', () => {
-    assert.strictEqual(typeof chainPropTypes, 'function');
+    expect(typeof chainPropTypes).to.equal('function');
   });
 
-  it('should return null for supported properties', () => {
+  it('should return null for supported props', () => {
     PropTypes.checkPropTypes(
       {
         [propName]: chainPropTypes(PropTypes.string, () => null),
@@ -30,22 +31,19 @@ describe('chainPropTypes', () => {
       location,
       componentName,
     );
-    assert.strictEqual(consoleErrorMock.callCount(), 0);
+    expect(consoleErrorMock.callCount()).to.equal(0);
   });
 
-  it('should return an error for unsupported properties', () => {
+  it('should return an error for unsupported props', () => {
     PropTypes.checkPropTypes(
       {
-        [propName]: chainPropTypes(
-          PropTypes.string,
-          () => new Error(`something is wrong ${Date.now()}`),
-        ),
+        [propName]: chainPropTypes(PropTypes.string, () => new Error('something is wrong')),
       },
       props,
       location,
       componentName,
     );
-    assert.strictEqual(consoleErrorMock.callCount(), 1);
-    assert.match(consoleErrorMock.args()[0][0], /something is wrong/);
+    expect(consoleErrorMock.callCount()).to.equal(1);
+    expect(consoleErrorMock.messages()[0]).to.match(/something is wrong/);
   });
 });

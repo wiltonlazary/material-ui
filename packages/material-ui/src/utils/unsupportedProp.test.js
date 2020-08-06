@@ -1,4 +1,4 @@
-import { assert } from 'chai';
+import { expect } from 'chai';
 import unsupportedProp from './unsupportedProp';
 
 describe('unsupportedProp', () => {
@@ -7,17 +7,17 @@ describe('unsupportedProp', () => {
   const location = 'prop';
   const propFullName = null;
 
-  it('should return null for supported properties', () => {
+  it('should return null for supported props', () => {
     const props = {};
     const result = unsupportedProp(props, propName, componentName, location, propFullName);
-    assert.strictEqual(result, null);
+    expect(result).to.equal(null);
   });
 
-  it('should return an error for unsupported properties', () => {
+  it('should return an error for unsupported props', () => {
     const props = {
       children: null,
     };
     const result = unsupportedProp(props, propName, componentName, location, propFullName);
-    assert.match(result.message, /The property `children` is not supported. Please remove it/);
+    expect(result.message).to.match(/The prop `children` is not supported. Please remove it/);
   });
 });

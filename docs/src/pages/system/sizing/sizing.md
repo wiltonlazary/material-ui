@@ -1,8 +1,23 @@
 # Sizing
 
-<p class="description">Easily make an element as wide or as tall (relative to its parent) with our width and height utilities.</p>
+<p class="description">Easily make an element as wide or as tall (relative to its parent) with the width and height utilities.</p>
+
+## Supported values
+
+The sizing style functions support different property input type:
+
+{{"demo": "pages/system/sizing/Values.js", "defaultCodeOpen": false}}
+
+```jsx
+<Box width={1/4}> // Numbers in [0,1] are multiplied by 100 and converted to % values.
+<Box width={300}> // Numbers are converted to pixel values.
+<Box width="75%"> // String values are used as raw CSS.
+<Box width={1}>   // 100%
+```
 
 ## Width
+
+{{"demo": "pages/system/sizing/Width.js", "defaultCodeOpen": false}}
 
 ```jsx
 <Box width="25%">…
@@ -12,9 +27,9 @@
 <Box width="auto">…
 ```
 
-{{"demo": "pages/system/sizing/Width.js"}}
-
 ## Height
+
+{{"demo": "pages/system/sizing/Height.js", "defaultCodeOpen": false}}
 
 ```jsx
 <Box height="25%">…
@@ -22,8 +37,6 @@
 <Box height="75%">…
 <Box height="100%">…
 ```
-
-{{"demo": "pages/system/sizing/Height.js"}}
 
 ## API
 
@@ -37,5 +50,6 @@ import { sizing } from '@material-ui/system';
 | `maxWidth` | `maxWidth` | `max-width` | none |
 | `minWidth` | `minWidth` | `min-width` | none |
 | `height` | `height` | `height` | none |
-| `maxHeight` | `axHeight`| `max-height` | none |
-| `minHeight` | `inHeight`| `min-height` | none |
+| `maxHeight` | `maxHeight`| `max-height` | none |
+| `minHeight` | `minHeight`| `min-height` | none |
+| `boxSizing` | `boxSizing`| `box-sizing` | none |

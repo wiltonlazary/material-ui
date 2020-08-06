@@ -1,69 +1,97 @@
-import React from 'react';
-import { assert } from 'chai';
-import { createShallow, getClasses } from '@material-ui/core/test-utils';
+import * as React from 'react';
+import { expect } from 'chai';
+import { getClasses } from '@material-ui/core/test-utils';
+import createMount from 'test/utils/createMount';
+import { createClientRender } from 'test/utils/createClientRender';
+import describeConformance from '../test-utils/describeConformance';
 import CardMedia from './CardMedia';
+import consoleErrorMock from 'test/utils/consoleErrorMock';
+import PropTypes from 'prop-types';
 
 describe('<CardMedia />', () => {
-  let shallow;
+  const mount = createMount();
   let classes;
-
+  const render = createClientRender();
   before(() => {
-    shallow = createShallow({ untilSelector: 'CardMedia' });
     classes = getClasses(<CardMedia image="/foo.jpg" />);
   });
 
-  it('should have the root and custom class', () => {
-    const wrapper = shallow(<CardMedia className="woofCardMedia" image="/foo.jpg" />);
-    assert.strictEqual(wrapper.hasClass(classes.root), true);
-    assert.strictEqual(wrapper.hasClass('woofCardMedia'), true);
-  });
+  describeConformance(<CardMedia image="/foo.jpg" />, () => ({
+    classes,
+    inheritComponent: 'div',
+    mount,
+    refInstanceof: window.HTMLDivElement,
+    testComponentPropWith: 'span',
+  }));
 
   it('should have the backgroundImage specified', () => {
-    const wrapper = shallow(<CardMedia image="/foo.jpg" />);
-    assert.strictEqual(wrapper.props().style.backgroundImage, 'url("/foo.jpg")');
-  });
-
-  it('should spread custom props on the root node', () => {
-    const wrapper = shallow(<CardMedia image="/foo.jpg" data-my-prop="woofCardMedia" />);
-    assert.strictEqual(
-      wrapper.prop('data-my-prop'),
-      'woofCardMedia',
-      'custom prop should be woofCardMedia',
-    );
+    const { container } = render(<CardMedia image="/foo.jpg" />);
+    const cardMedia = container.firstChild;
+    expect(cardMedia.style.backgroundImage).to.match(/\/foo\.jpg/m);
   });
 
   it('should have backgroundImage specified even though custom styles got passed', () => {
-    const wrapper = shallow(<CardMedia image="/foo.jpg" style={{ height: 200 }} />);
-    assert.strictEqual(wrapper.props().style.backgroundImage, 'url("/foo.jpg")');
-    assert.strictEqual(wrapper.props().style.height, 200);
+    const { container } = render(<CardMedia image="/foo.jpg" style={{ height: 200 }} />);
+    const cardMedia = container.firstChild;
+    expect(cardMedia.style.backgroundImage).to.match(/\/foo\.jpg/m);
+    expect(cardMedia.style.height).to.equal('200px');
   });
 
   it('should be possible to overwrite backgroundImage via custom styles', () => {
-    const wrapper = shallow(
+    const { container } = render(
       <CardMedia image="/foo.jpg" style={{ backgroundImage: 'url(/bar.jpg)' }} />,
     );
-    assert.strictEqual(wrapper.props().style.backgroundImage, 'url(/bar.jpg)');
+    const cardMedia = container.firstChild;
+    expect(cardMedia.style.backgroundImage).to.match(/\/bar\.jpg/m);
   });
 
   describe('prop: component', () => {
-    it('should render `img` component when `img` specified', () => {
-      const wrapper = shallow(<CardMedia image="/foo.jpg" component="img" />);
-      assert.strictEqual(wrapper.type(), 'img');
+    it('should have `src` prop when media component specified', () => {
+      const { container } = render(<CardMedia image="/foo.jpg" component="iframe" />);
+      const cardMedia = container.firstChild;
+      expect(cardMedia).to.have.attribute('src', '/foo.jpg');
     });
 
-    it('should have `src` prop when media component specified', () => {
-      const wrapper = shallow(<CardMedia image="/foo.jpg" component="iframe" />);
-      assert.strictEqual(wrapper.prop('src'), '/foo.jpg');
+    it('should not have `src` prop when picture media component specified', () => {
+      const { container } = render(
+        <CardMedia component="picture">
+          <source media="(min-width: 600px)" srcSet="big-cat.jpg" />
+          <img src="cat.jpg" alt="hello" />
+        </CardMedia>,
+      );
+      const cardMedia = container.firstChild;
+      expect(cardMedia).to.not.have.attribute('src');
     });
 
     it('should not have default inline style when media component specified', () => {
-      const wrapper = shallow(<CardMedia src="/foo.jpg" component="picture" />);
-      assert.strictEqual(wrapper.props().style, undefined);
+      const { container } = render(<CardMedia src="/foo.jpg" component="picture" />);
+      const cardMedia = container.firstChild;
+      expect(cardMedia.style.backgroundImage).to.equal('');
     });
 
     it('should not have `src` prop if not media component specified', () => {
-      const wrapper = shallow(<CardMedia image="/foo.jpg" component="table" />);
-      assert.strictEqual(wrapper.prop('src'), undefined);
+      const { container } = render(<CardMedia image="/foo.jpg" component="table" />);
+      const cardMedia = container.firstChild;
+      expect(cardMedia).to.not.have.attribute('src');
+    });
+  });
+
+  describe('warnings', () => {
+    before(() => {
+      consoleErrorMock.spy();
+      PropTypes.resetWarningCache();
+    });
+
+    after(() => {
+      consoleErrorMock.reset();
+    });
+
+    it('warns when neither `children`, nor `image`, nor `src`, nor `component` are provided', () => {
+      PropTypes.checkPropTypes(CardMedia.Naked.propTypes, { classes: {} }, 'prop', 'MockedName');
+      expect(consoleErrorMock.callCount()).to.equal(1);
+      expect(consoleErrorMock.messages()[0]).to.contain(
+        'Material-UI: Either `children`, `image`, `src` or `component` prop must be specified.',
+      );
     });
   });
 });

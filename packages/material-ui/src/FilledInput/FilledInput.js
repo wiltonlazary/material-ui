@@ -1,13 +1,11 @@
-// @inheritedComponent InputBase
-
-import React from 'react';
+import * as React from 'react';
 import PropTypes from 'prop-types';
-import classNames from 'classnames';
-import { componentPropType } from '@material-ui/utils';
+import clsx from 'clsx';
+import { refType } from '@material-ui/utils';
 import InputBase from '../InputBase';
 import withStyles from '../styles/withStyles';
 
-export const styles = theme => {
+export const styles = (theme) => {
   const light = theme.palette.type === 'light';
   const bottomLineColor = light ? 'rgba(0, 0, 0, 0.42)' : 'rgba(255, 255, 255, 0.7)';
   const backgroundColor = light ? 'rgba(0, 0, 0, 0.09)' : 'rgba(255, 255, 255, 0.09)';
@@ -37,10 +35,16 @@ export const styles = theme => {
         backgroundColor: light ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.12)',
       },
     },
+    /* Styles applied to the root element if color secondary. */
+    colorSecondary: {
+      '&$underline:after': {
+        borderBottomColor: theme.palette.secondary.main,
+      },
+    },
     /* Styles applied to the root element if `disableUnderline={false}`. */
     underline: {
       '&:after': {
-        borderBottom: `2px solid ${theme.palette.primary[light ? 'dark' : 'light']}`,
+        borderBottom: `2px solid ${theme.palette.primary.main}`,
         left: 0,
         bottom: 0,
         // Doing the other way around crash on IE 11 "''" https://github.com/cssinjs/jss/issues/242
@@ -74,16 +78,16 @@ export const styles = theme => {
         }),
         pointerEvents: 'none', // Transparent to the hover style.
       },
-      '&:hover:not($disabled):not($focused):not($error):before': {
+      '&:hover:before': {
         borderBottom: `1px solid ${theme.palette.text.primary}`,
       },
       '&$disabled:before': {
-        borderBottom: `1px dotted ${bottomLineColor}`,
+        borderBottomStyle: 'dotted',
       },
     },
-    /* Styles applied to the root element if the component is focused. */
+    /* Pseudo-class applied to the root element if the component is focused. */
     focused: {},
-    /* Styles applied to the root element if `disabled={true}`. */
+    /* Pseudo-class applied to the root element if `disabled={true}`. */
     disabled: {},
     /* Styles applied to the root element if `startAdornment` is provided. */
     adornedStart: {
@@ -93,21 +97,42 @@ export const styles = theme => {
     adornedEnd: {
       paddingRight: 12,
     },
-    /* Styles applied to the root element if `error={true}`. */
+    /* Pseudo-class applied to the root element if `error={true}`. */
     error: {},
+    /* Styles applied to the `input` element if `margin="dense"`. */
+    marginDense: {},
     /* Styles applied to the root element if `multiline={true}`. */
     multiline: {
       padding: '27px 12px 10px',
-      boxSizing: 'border-box', // Prevent padding issue with fullWidth.
+      '&$marginDense': {
+        paddingTop: 23,
+        paddingBottom: 6,
+      },
     },
     /* Styles applied to the `input` element. */
     input: {
       padding: '27px 12px 10px',
+      '&:-webkit-autofill': {
+        WebkitBoxShadow: theme.palette.type === 'light' ? null : '0 0 0 100px #266798 inset',
+        WebkitTextFillColor: theme.palette.type === 'light' ? null : '#fff',
+        caretColor: theme.palette.type === 'light' ? null : '#fff',
+        borderTopLeftRadius: 'inherit',
+        borderTopRightRadius: 'inherit',
+      },
     },
     /* Styles applied to the `input` element if `margin="dense"`. */
     inputMarginDense: {
-      paddingTop: 24,
+      paddingTop: 23,
       paddingBottom: 6,
+    },
+    /* Styles applied to the `input` if in `<FormControl hiddenLabel />`. */
+    inputHiddenLabel: {
+      paddingTop: 18,
+      paddingBottom: 19,
+      '&$inputMarginDense': {
+        paddingTop: 10,
+        paddingBottom: 11,
+      },
     },
     /* Styles applied to the `input` element if `multiline={true}`. */
     inputMultiline: {
@@ -124,58 +149,66 @@ export const styles = theme => {
   };
 };
 
-function FilledInput(props) {
-  const { disableUnderline, classes, ...other } = props;
+const FilledInput = React.forwardRef(function FilledInput(props, ref) {
+  const {
+    disableUnderline,
+    classes,
+    fullWidth = false,
+    inputComponent = 'input',
+    multiline = false,
+    type = 'text',
+    ...other
+  } = props;
 
   return (
     <InputBase
       classes={{
         ...classes,
-        root: classNames(classes.root, {
+        root: clsx(classes.root, {
           [classes.underline]: !disableUnderline,
         }),
         underline: null,
       }}
+      fullWidth={fullWidth}
+      inputComponent={inputComponent}
+      multiline={multiline}
+      ref={ref}
+      type={type}
       {...other}
     />
   );
-}
+});
 
 FilledInput.propTypes = {
+  // ----------------------------- Warning --------------------------------
+  // | These PropTypes are generated from the TypeScript type definitions |
+  // |     To update them edit the d.ts file and run "yarn proptypes"     |
+  // ----------------------------------------------------------------------
   /**
-   * This property helps users to fill forms faster, especially on mobile devices.
+   * This prop helps users to fill forms faster, especially on mobile devices.
    * The name can be confusing, as it's more like an autofill.
-   * You can learn more about it here:
-   * https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#autofill
+   * You can learn more about it [following the specification](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#autofill).
    */
   autoComplete: PropTypes.string,
   /**
-   * If `true`, the input will be focused during the first mount.
+   * If `true`, the `input` element will be focused during the first mount.
    */
   autoFocus: PropTypes.bool,
   /**
    * Override or extend the styles applied to the component.
-   * See [CSS API](#css-api) below for more details.
+   * See [CSS API](#css) below for more details.
    */
-  classes: PropTypes.object.isRequired,
+  classes: PropTypes.object,
   /**
-   * The CSS class name of the wrapper element.
+   * The color of the component. It supports those theme colors that make sense for this component.
    */
-  className: PropTypes.string,
+  color: PropTypes.oneOf(['primary', 'secondary']),
   /**
-   * The default input value, useful when not controlling the component.
+   * The default `input` element value. Use when the component is not controlled.
    */
-  defaultValue: PropTypes.oneOfType([
-    PropTypes.string,
-    PropTypes.number,
-    PropTypes.bool,
-    PropTypes.object,
-    PropTypes.arrayOf(
-      PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.bool, PropTypes.object]),
-    ),
-  ]),
+  defaultValue: PropTypes.any,
   /**
-   * If `true`, the input will be disabled.
+   * If `true`, the `input` element will be disabled.
    */
   disabled: PropTypes.bool,
   /**
@@ -200,18 +233,18 @@ FilledInput.propTypes = {
    */
   id: PropTypes.string,
   /**
-   * The component used for the native input.
-   * Either a string to use a DOM element or a component.
+   * The component used for the `input` element.
+   * Either a string to use a HTML element or a component.
    */
-  inputComponent: componentPropType,
+  inputComponent: PropTypes.elementType,
   /**
-   * Attributes applied to the `input` element.
+   * [Attributes](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#Attributes) applied to the `input` element.
    */
   inputProps: PropTypes.object,
   /**
-   * Use that property to pass a ref callback to the native input component.
+   * Pass a ref to the `input` element.
    */
-  inputRef: PropTypes.oneOfType([PropTypes.func, PropTypes.object]),
+  inputRef: refType,
   /**
    * If `dense`, will adjust vertical spacing. This is normally obtained via context from
    * FormControl.
@@ -229,7 +262,7 @@ FilledInput.propTypes = {
    * Callback fired when the value is changed.
    *
    * @param {object} event The event source of the callback.
-   * You can pull out the new value by accessing `event.target.value`.
+   * You can pull out the new value by accessing `event.target.value` (string).
    */
   onChange: PropTypes.func,
   /**
@@ -242,44 +275,29 @@ FilledInput.propTypes = {
    */
   readOnly: PropTypes.bool,
   /**
-   * If `true`, the input will be required.
+   * If `true`, the `input` element will be required.
    */
   required: PropTypes.bool,
   /**
    * Number of rows to display when multiline option is set to true.
    */
-  rows: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  rows: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   /**
    * Maximum number of rows to display when multiline option is set to true.
    */
-  rowsMax: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  rowsMax: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   /**
    * Start `InputAdornment` for this component.
    */
   startAdornment: PropTypes.node,
   /**
-   * Type of the input element. It should be a valid HTML5 input type.
+   * Type of the `input` element. It should be [a valid HTML5 input type](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#Form_%3Cinput%3E_types).
    */
   type: PropTypes.string,
   /**
-   * The input value, required for a controlled component.
+   * The value of the `input` element, required for a controlled component.
    */
-  value: PropTypes.oneOfType([
-    PropTypes.string,
-    PropTypes.number,
-    PropTypes.bool,
-    PropTypes.object,
-    PropTypes.arrayOf(
-      PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.bool, PropTypes.object]),
-    ),
-  ]),
-};
-
-InputBase.defaultProps = {
-  fullWidth: false,
-  inputComponent: 'input',
-  multiline: false,
-  type: 'text',
+  value: PropTypes.any,
 };
 
 FilledInput.muiName = 'Input';

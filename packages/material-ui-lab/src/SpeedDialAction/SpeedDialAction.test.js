@@ -1,83 +1,80 @@
-import React from 'react';
-import { assert } from 'chai';
-import { spy } from 'sinon';
-import { createMount, createShallow, getClasses } from '@material-ui/core/test-utils';
+import * as React from 'react';
+import { expect } from 'chai';
+import { getClasses } from '@material-ui/core/test-utils';
+import { useFakeTimers } from 'sinon';
+import createMount from 'test/utils/createMount';
+import { createClientRender, fireEvent } from 'test/utils/createClientRender';
 import Icon from '@material-ui/core/Icon';
 import Tooltip from '@material-ui/core/Tooltip';
 import Fab from '@material-ui/core/Fab';
 import SpeedDialAction from './SpeedDialAction';
+import describeConformance from '@material-ui/core/test-utils/describeConformance';
 
 describe('<SpeedDialAction />', () => {
-  let mount;
-  let shallow;
+  // StrictModeViolation: uses Tooltip
+  const mount = createMount({ strict: false });
+  const render = createClientRender({ strict: false });
   let classes;
-  const icon = <Icon>add</Icon>;
-  const defaultProps = {
-    icon,
-    tooltipTitle: 'placeholder',
-  };
+  const fabClasses = getClasses(<Fab>Fab</Fab>);
+  let clock;
 
   before(() => {
-    mount = createMount();
-    shallow = createShallow({ dive: true });
-    classes = getClasses(<SpeedDialAction {...defaultProps} />);
+    classes = getClasses(<SpeedDialAction icon={<Icon>add</Icon>} tooltipTitle="placeholder" />);
   });
 
-  it('should render its component tree without warnings', () => {
-    const wrapper = mount(<SpeedDialAction {...defaultProps} />);
-
-    wrapper.unmount();
+  beforeEach(() => {
+    clock = useFakeTimers();
   });
 
-  it('initializes its state from props', () => {
-    const wrapper = shallow(<SpeedDialAction {...defaultProps} open tooltipOpen />);
-    assert.strictEqual(wrapper.state().tooltipOpen, true);
+  afterEach(() => {
+    clock.restore();
   });
 
-  it('should render a Tooltip', () => {
-    const wrapper = shallow(<SpeedDialAction {...defaultProps} />);
-    assert.strictEqual(wrapper.type(), Tooltip);
-  });
+  describeConformance(
+    <SpeedDialAction icon={<Icon>add</Icon>} tooltipTitle="placeholder" />,
+    () => ({
+      classes,
+      inheritComponent: Tooltip,
+      mount,
+      refInstanceof: window.HTMLButtonElement,
+      skip: ['componentProp'],
+    }),
+  );
 
   it('should be able to change the Tooltip classes', () => {
-    const wrapper = shallow(<SpeedDialAction {...defaultProps} />);
-    wrapper.setProps({ TooltipClasses: { root: 'bar' } });
-    assert.include(wrapper.props().classes.root, 'bar');
+    const { getByText, container } = render(
+      <SpeedDialAction
+        icon={<Icon>add</Icon>}
+        open
+        tooltipTitle="placeholder"
+        TooltipClasses={{ tooltip: 'bar' }}
+      />,
+    );
+
+    fireEvent.mouseOver(container.querySelector('button'));
+    clock.tick(100);
+    expect(getByText('placeholder')).to.have.class('bar');
   });
 
-  it('should render a Button', () => {
-    const wrapper = shallow(<SpeedDialAction {...defaultProps} />);
-    const buttonWrapper = wrapper.childAt(0);
-    assert.strictEqual(buttonWrapper.type(), Fab);
+  it('should render a Fab', () => {
+    const { container } = render(
+      <SpeedDialAction icon={<Icon>add</Icon>} tooltipTitle="placeholder" />,
+    );
+    expect(container.querySelector('button')).to.have.class(fabClasses.root);
   });
 
-  it('should render the Button with the button class', () => {
-    const wrapper = shallow(<SpeedDialAction {...defaultProps} open />);
-    const buttonWrapper = wrapper.childAt(0);
-    assert.strictEqual(buttonWrapper.hasClass(classes.button), true);
+  it('should render the button with the fab class', () => {
+    const { container } = render(
+      <SpeedDialAction icon={<Icon>add</Icon>} tooltipTitle="placeholder" open />,
+    );
+    expect(container.querySelector('button')).to.have.class(classes.fab);
   });
 
-  it('should render the Button with the button and buttonClosed classes', () => {
-    const wrapper = shallow(<SpeedDialAction {...defaultProps} />);
-    const buttonWrapper = wrapper.childAt(0);
-    assert.strictEqual(buttonWrapper.hasClass(classes.button), true);
-    assert.strictEqual(buttonWrapper.hasClass(classes.buttonClosed), true);
-  });
-
-  it('passes the className to the Button', () => {
-    const className = 'my-speeddialaction';
-    const wrapper = shallow(<SpeedDialAction {...defaultProps} className={className} />);
-    const buttonWrapper = wrapper.childAt(0);
-    assert.strictEqual(buttonWrapper.hasClass(className), true);
-  });
-
-  describe('prop: onClick', () => {
-    it('should be called when a click is triggered', () => {
-      const handleClick = spy();
-      const wrapper = shallow(<SpeedDialAction {...defaultProps} open onClick={handleClick} />);
-      const buttonWrapper = wrapper.childAt(0);
-      buttonWrapper.simulate('click');
-      assert.strictEqual(handleClick.callCount, 1);
-    });
+  it('should render the button with the fab and fabClosed classes', () => {
+    const { container } = render(
+      <SpeedDialAction icon={<Icon>add</Icon>} tooltipTitle="placeholder" />,
+    );
+    expect(container.querySelector('button')).to.have.class(classes.fab);
+    expect(container.querySelector('button')).to.have.class(classes.fabClosed);
   });
 });

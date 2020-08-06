@@ -1,33 +1,31 @@
-import React from 'react';
-import { assert } from 'chai';
-import { createShallow, getClasses } from '@material-ui/core/test-utils';
+import * as React from 'react';
+import { getClasses } from '@material-ui/core/test-utils';
+import createMount from 'test/utils/createMount';
+import describeConformance from '../test-utils/describeConformance';
 import ExpansionPanelDetails from './ExpansionPanelDetails';
+import consoleErrorMock from 'test/utils/consoleErrorMock';
 
 describe('<ExpansionPanelDetails />', () => {
-  let shallow;
+  const mount = createMount();
   let classes;
 
   before(() => {
-    shallow = createShallow({ dive: true });
     classes = getClasses(<ExpansionPanelDetails>foo</ExpansionPanelDetails>);
   });
 
-  it('should render a div', () => {
-    const wrapper = shallow(
-      <ExpansionPanelDetails className="woofExpansionPanelDetails">foo</ExpansionPanelDetails>,
-    );
-    assert.strictEqual(wrapper.name(), 'div');
-    assert.strictEqual(wrapper.hasClass(classes.root), true);
-    assert.strictEqual(wrapper.hasClass('woofExpansionPanelDetails'), true);
+  beforeEach(() => {
+    consoleErrorMock.spy();
   });
 
-  it('should render a children element', () => {
-    const wrapper = shallow(
-      <ExpansionPanelDetails>
-        <div>Hello</div>
-      </ExpansionPanelDetails>,
-    );
-    const container = wrapper.childAt(0);
-    assert.strictEqual(container.type(), 'div');
+  afterEach(() => {
+    consoleErrorMock.reset();
   });
+
+  describeConformance(<ExpansionPanelDetails>Conformance</ExpansionPanelDetails>, () => ({
+    classes,
+    inheritComponent: 'div',
+    mount,
+    refInstanceof: window.HTMLDivElement,
+    skip: ['componentProp'],
+  }));
 });

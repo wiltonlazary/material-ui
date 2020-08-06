@@ -1,45 +1,46 @@
-import React from 'react';
-import { assert } from 'chai';
-import { createShallow, createMount } from '@material-ui/core/test-utils';
+import * as React from 'react';
+import { expect } from 'chai';
+import { createShallow, getClasses } from '@material-ui/core/test-utils';
+import createMount from 'test/utils/createMount';
+import describeConformance from '../test-utils/describeConformance';
 import Collapse from '../Collapse';
 import StepContent from './StepContent';
 
 describe('<StepContent />', () => {
+  let classes;
   let shallow;
-  let mount;
+  // StrictModeViolation: uses Collapse
+  const mount = createMount({ strict: false });
   const defaultProps = {
     orientation: 'vertical',
   };
 
   before(() => {
+    classes = getClasses(<StepContent />);
     shallow = createShallow({ dive: true });
-    mount = createMount();
   });
 
-  after(() => {
-    mount.cleanUp();
-  });
-
-  it('renders a div', () => {
-    const wrapper = shallow(<StepContent {...defaultProps}>Here is the content</StepContent>);
-    assert.strictEqual(wrapper.type(), 'div');
-  });
+  describeConformance(<StepContent {...defaultProps} />, () => ({
+    classes,
+    inheritComponent: 'div',
+    mount,
+    refInstanceof: window.HTMLDivElement,
+    skip: ['componentProp'],
+  }));
 
   it('merges styles and other props into the root node', () => {
     const wrapper = shallow(
       <StepContent
         style={{ paddingRight: 200, color: 'purple', border: '1px solid tomato' }}
-        role="Tabpanel"
         {...defaultProps}
       >
         Lorem ipsum
       </StepContent>,
     );
-    const { style, role } = wrapper.props();
-    assert.strictEqual(style.paddingRight, 200);
-    assert.strictEqual(style.color, 'purple');
-    assert.strictEqual(style.border, '1px solid tomato');
-    assert.strictEqual(role, 'Tabpanel');
+    const props = wrapper.props();
+    expect(props.style.paddingRight).to.equal(200);
+    expect(props.style.color).to.equal('purple');
+    expect(props.style.border).to.equal('1px solid tomato');
   });
 
   it('renders children inside an Collapse component', () => {
@@ -49,30 +50,30 @@ describe('<StepContent />', () => {
       </StepContent>,
     );
     const collapse = wrapper.find(Collapse);
-    assert.strictEqual(collapse.length, 1);
+    expect(collapse.length).to.equal(1);
     const content = collapse.find('.test-content');
-    assert.strictEqual(content.length, 1);
-    assert.strictEqual(content.props().children, 'This is my content!');
+    expect(content.length).to.equal(1);
+    expect(content.props().children).to.equal('This is my content!');
   });
 
   describe('prop: transitionDuration', () => {
-    it('should apply the auto property if supported', () => {
+    it('should apply the auto prop if supported', () => {
       const wrapper = shallow(
         <StepContent {...defaultProps}>
           <div />
         </StepContent>,
       );
-      assert.strictEqual(wrapper.find(Collapse).props().timeout, 'auto');
+      expect(wrapper.find(Collapse).props().timeout).to.equal('auto');
     });
 
-    it('should not apply the auto property if not supported', () => {
-      const TransitionComponent = props => <div {...props} />;
+    it('should not apply the auto prop if not supported', () => {
+      const TransitionComponent = (props) => <div {...props} />;
       const wrapper = shallow(
         <StepContent {...defaultProps} TransitionComponent={TransitionComponent}>
           <div />
         </StepContent>,
       );
-      assert.strictEqual(wrapper.find(TransitionComponent).props().timeout, undefined);
+      expect(wrapper.find(TransitionComponent).props().timeout).to.equal(undefined);
     });
   });
 });

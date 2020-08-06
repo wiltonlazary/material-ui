@@ -1,13 +1,7 @@
-const bpmr = require('babel-plugin-module-resolver');
+const path = require('path');
 
-function resolvePath(sourcePath, currentFile, opts) {
-  if (sourcePath === 'markdown') {
-    const base = currentFile.substring(__dirname.length).slice(0, -3);
-    return `${__dirname}/docs/src/${base}/`;
-  }
-
-  return bpmr.resolvePath(sourcePath, currentFile, opts);
-}
+const errorCodesPath = path.resolve(__dirname, './docs/public/static/error-codes.json');
+const missingError = process.env.MUI_EXTRACT_ERROR_CODES === 'true' ? 'write' : 'annotate';
 
 let defaultPresets;
 
@@ -21,7 +15,8 @@ if (process.env.BABEL_ENV === 'es') {
     [
       '@babel/preset-env',
       {
-        modules: ['modules', 'production-umd'].includes(process.env.BABEL_ENV) ? false : 'commonjs',
+        bugfixes: true,
+        modules: ['esm', 'production-umd'].includes(process.env.BABEL_ENV) ? false : 'commonjs',
       },
     ],
   ];
@@ -29,34 +24,50 @@ if (process.env.BABEL_ENV === 'es') {
 
 const defaultAlias = {
   '@material-ui/core': './packages/material-ui/src',
+  '@material-ui/docs': './packages/material-ui-docs/src',
   '@material-ui/icons': './packages/material-ui-icons/src',
   '@material-ui/lab': './packages/material-ui-lab/src',
   '@material-ui/styles': './packages/material-ui-styles/src',
-  '@material-ui/utils': './packages/material-ui-utils/src',
   '@material-ui/system': './packages/material-ui-system/src',
+  '@material-ui/utils': './packages/material-ui-utils/src',
 };
 
+const productionPlugins = [
+  '@babel/plugin-transform-react-constant-elements',
+  'babel-plugin-transform-dev-warning',
+  ['babel-plugin-react-remove-properties', { properties: ['data-mui-test'] }],
+  [
+    'babel-plugin-transform-react-remove-prop-types',
+    {
+      mode: 'unsafe-wrap',
+    },
+  ],
+];
+
 module.exports = {
-  presets: defaultPresets.concat(['@babel/preset-react']),
+  presets: defaultPresets.concat(['@babel/preset-react', '@babel/preset-typescript']),
   plugins: [
+    [
+      'babel-plugin-macros',
+      {
+        muiError: {
+          errorCodesPath,
+          missingError,
+        },
+      },
+    ],
+    'babel-plugin-optimize-clsx',
     ['@babel/plugin-proposal-class-properties', { loose: true }],
     ['@babel/plugin-proposal-object-rest-spread', { loose: true }],
+    // any package needs to declare 7.4.4 as a runtime dependency. default is ^7.0.0
+    ['@babel/plugin-transform-runtime', { version: '^7.4.4' }],
+    // for IE 11 support
     '@babel/plugin-transform-object-assign',
-    '@babel/plugin-transform-runtime',
   ],
-  ignore: [/@babel[\\|/]runtime/],
+  ignore: [/@babel[\\|/]runtime/], // Fix a Windows issue.
   env: {
-    test: {
-      sourceMaps: 'both',
-      plugins: [
-        [
-          'babel-plugin-module-resolver',
-          {
-            root: ['./'],
-            alias: defaultAlias,
-          },
-        ],
-      ],
+    cjs: {
+      plugins: productionPlugins,
     },
     coverage: {
       plugins: [
@@ -82,89 +93,38 @@ module.exports = {
         ],
       ],
     },
-    'docs-development': {
-      plugins: [
-        'babel-plugin-preval',
-        [
-          'babel-plugin-module-resolver',
-          {
-            alias: {
-              ...defaultAlias,
-              '@material-ui/docs': './packages/material-ui-docs/src',
-              docs: './docs',
-              modules: './modules',
-              pages: './pages',
-            },
-            transformFunctions: ['require', 'require.context'],
-            resolvePath,
-          },
-        ],
-      ],
-    },
-    'docs-production': {
-      plugins: [
-        'babel-plugin-preval',
-        [
-          'babel-plugin-module-resolver',
-          {
-            alias: {
-              ...defaultAlias,
-              '@material-ui/docs': './packages/material-ui-docs/src',
-              docs: './docs',
-              modules: './modules',
-              pages: './pages',
-            },
-            transformFunctions: ['require', 'require.context'],
-            resolvePath,
-          },
-        ],
-        'transform-react-constant-elements',
-        'transform-dev-warning',
-        ['react-remove-properties', { properties: ['data-mui-test'] }],
-        ['transform-react-remove-prop-types', { mode: 'remove' }],
-      ],
+    esm: {
+      plugins: [...productionPlugins, ['@babel/plugin-transform-runtime', { useESModules: true }]],
     },
     es: {
-      plugins: [
-        'transform-react-constant-elements',
-        'transform-dev-warning',
-        ['react-remove-properties', { properties: ['data-mui-test'] }],
-        [
-          'transform-react-remove-prop-types',
-          {
-            mode: 'unsafe-wrap',
-          },
-        ],
-      ],
-      // It's most likely a babel bug.
-      // We are using this ignore option in the CLI command but that has no effect.
-      ignore: ['**/*.test.js'],
+      plugins: [...productionPlugins, ['@babel/plugin-transform-runtime', { useESModules: true }]],
     },
     production: {
+      plugins: [...productionPlugins, ['@babel/plugin-transform-runtime', { useESModules: true }]],
+    },
+    'production-umd': {
+      plugins: [...productionPlugins, ['@babel/plugin-transform-runtime', { useESModules: true }]],
+    },
+    test: {
+      sourceMaps: 'both',
       plugins: [
-        'transform-react-constant-elements',
-        'transform-dev-warning',
-        ['react-remove-properties', { properties: ['data-mui-test'] }],
         [
-          'transform-react-remove-prop-types',
+          'babel-plugin-module-resolver',
           {
-            mode: 'unsafe-wrap',
+            root: ['./'],
+            alias: defaultAlias,
           },
         ],
       ],
-      // It's most likely a babel bug.
-      // We are using this ignore option in the CLI command but that has no effect.
-      ignore: ['**/*.test.js'],
     },
-    'production-umd': {
+    benchmark: {
       plugins: [
-        'transform-react-constant-elements',
-        'transform-dev-warning',
-        ['react-remove-properties', { properties: ['data-mui-test'] }],
+        ...productionPlugins,
         [
-          'transform-react-remove-prop-types',
+          'babel-plugin-module-resolver',
           {
-            mode: 'unsafe-wrap',
+            root: ['./'],
+            alias: defaultAlias,
           },
         ],
       ],

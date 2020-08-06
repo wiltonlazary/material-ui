@@ -1,14 +1,11 @@
-import React from 'react';
-import { assert } from 'chai';
-import { mount, shallow } from 'enzyme';
-import EventListener from 'react-event-listener';
-import { spy, useFakeTimers } from 'sinon';
+import * as React from 'react';
+import { expect } from 'chai';
+import { spy, useFakeTimers, stub } from 'sinon';
 import ScrollbarSize from './ScrollbarSize';
+import { createClientRender } from 'test/utils/createClientRender';
 
 describe('<ScrollbarSize />', () => {
-  const defaultProps = {
-    onChange: () => {},
-  };
+  const render = createClientRender();
   let clock;
 
   before(() => {
@@ -20,53 +17,41 @@ describe('<ScrollbarSize />', () => {
   });
 
   describe('mount', () => {
-    let wrapper;
-
-    afterEach(() => {
-      wrapper.unmount();
-    });
-
-    it('should not call on initial load', () => {
-      const onChange = spy();
-      wrapper = mount(<ScrollbarSize {...defaultProps} />);
-      assert.strictEqual(onChange.callCount, 0);
-    });
-
     it('should call on initial load', () => {
       const onChange = spy();
-      wrapper = mount(<ScrollbarSize {...defaultProps} onChange={onChange} />);
-      assert.strictEqual(onChange.callCount, 1);
-      assert.strictEqual(onChange.calledWith(0), true);
+      render(<ScrollbarSize onChange={onChange} />);
+
+      expect(onChange.callCount).to.equal(1);
     });
   });
 
   describe('prop: onChange', () => {
-    let onChange;
-    let wrapper;
-
-    beforeEach(() => {
-      onChange = spy();
-      wrapper = shallow(<ScrollbarSize {...defaultProps} onChange={onChange} />);
-      const instance = wrapper.instance();
-      instance.nodeRef = {
-        offsetHeight: 17,
-        clientHeight: 0,
-      };
-    });
-
     it('should call on first resize event', () => {
-      assert.strictEqual(onChange.callCount, 1);
-      wrapper.find(EventListener).simulate('resize');
+      const onChange = spy();
+      const { container } = render(<ScrollbarSize onChange={onChange} />);
+      stub(container.firstChild, 'offsetHeight').get(() => 20);
+      stub(container.firstChild, 'clientHeight').get(() => 0);
+
+      expect(onChange.callCount).to.equal(1);
+      window.dispatchEvent(new window.Event('resize', {}));
       clock.tick(166);
-      assert.strictEqual(onChange.callCount, 2);
-      assert.strictEqual(onChange.calledWith(17), true);
+      expect(onChange.callCount).to.equal(2);
+      expect(onChange.args[1][0]).to.equal(20);
     });
 
-    it('should not call on second resize event', () => {
-      assert.strictEqual(onChange.callCount, 1);
-      wrapper.find(EventListener).simulate('resize');
+    it('should not call if height has not changed from previous resize', () => {
+      const onChange = spy();
+      const { container } = render(<ScrollbarSize onChange={onChange} />);
+      stub(container.firstChild, 'offsetHeight').get(() => 20);
+      stub(container.firstChild, 'clientHeight').get(() => 0);
+
+      expect(onChange.callCount).to.equal(1);
+      window.dispatchEvent(new window.Event('resize', {}));
       clock.tick(166);
-      assert.strictEqual(onChange.callCount, 2);
+      window.dispatchEvent(new window.Event('resize', {}));
+      clock.tick(166);
+      expect(onChange.callCount).to.equal(2);
+      expect(onChange.args[1][0]).to.equal(20);
     });
   });
 });

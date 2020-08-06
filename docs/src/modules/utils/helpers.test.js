@@ -1,4 +1,4 @@
-import { assert } from 'chai';
+import { expect } from 'chai';
 import { getDependencies } from './helpers';
 
 describe('docs getDependencies helpers', () => {
@@ -20,8 +20,8 @@ const styles = theme => ({
   formContro
 `;
 
-  it('generates the right npm dependencies', () => {
-    assert.deepEqual(getDependencies(s1), {
+  it('should handle @ dependencies', () => {
+    expect(getDependencies(s1)).to.deep.equal({
       '@foo-bar/bip': 'latest',
       '@material-ui/core': 'latest',
       'prop-types': 'latest',
@@ -30,12 +30,12 @@ const styles = theme => ({
     });
   });
 
-  it('generates the right npm dependencies', () => {
-    const s2 = `
+  it('should handle * dependencies', () => {
+    const source = `
 import React from 'react';
 import PropTypes from 'prop-types';
 import * as _ from '@unexisting/thing';
-import Autosuggest from 'react-autosuggest';
+import Draggable from 'react-draggable';
 import match from 'autosuggest-highlight/match';
 import parse from 'autosuggest-highlight/parse';
 import TextField from '@material-ui/core/TextField';
@@ -45,19 +45,19 @@ import { withStyles } from '@material-ui/core/styles';
 const suggestions = [
 `;
 
-    assert.deepEqual(getDependencies(s2), {
+    expect(getDependencies(source)).to.deep.equal({
       '@material-ui/core': 'latest',
       '@unexisting/thing': 'latest',
       'autosuggest-highlight': 'latest',
       'prop-types': 'latest',
-      'react-autosuggest': 'latest',
+      'react-draggable': 'latest',
       'react-dom': 'latest',
       react: 'latest',
     });
   });
 
-  it('generates the right npm dependencies', () => {
-    assert.deepEqual(getDependencies(s1, 'next'), {
+  it('should support next dependencies', () => {
+    expect(getDependencies(s1, { reactVersion: 'next' })).to.deep.equal({
       '@foo-bar/bip': 'latest',
       '@material-ui/core': 'latest',
       'prop-types': 'latest',
@@ -66,25 +66,72 @@ const suggestions = [
     });
   });
 
-  it('generates the right npm dependencies', () => {
-    const s3 = `
+  it('should support direct import', () => {
+    const source = `
 import 'date-fns';
 import React from 'react';
 import PropTypes from 'prop-types';
 import Grid from '@material-ui/core/Grid';
 import { withStyles } from '@material-ui/core/styles';
 import DateFnsUtils from '@date-io/date-fns';
-import { MuiPickersUtilsProvider, TimePicker, DatePicker } from 'material-ui-pickers';
+import { MuiPickersUtilsProvider, TimePicker, DatePicker } from '@material-ui/pickers';
 `;
 
-    assert.deepEqual(getDependencies(s3), {
-      'date-fns': 'next',
-      '@date-io/date-fns': 'latest',
-      'material-ui-pickers': 'latest',
+    expect(getDependencies(source)).to.deep.equal({
+      'date-fns': 'latest',
+      '@date-io/date-fns': 'v1',
+      '@material-ui/pickers': 'latest',
       '@material-ui/core': 'latest',
       'prop-types': 'latest',
       'react-dom': 'latest',
       react: 'latest',
+    });
+  });
+
+  it('can collect required @types packages', () => {
+    expect(getDependencies(s1, { codeLanguage: 'TS' })).to.deep.equal({
+      '@foo-bar/bip': 'latest',
+      '@material-ui/core': 'latest',
+      'prop-types': 'latest',
+      'react-dom': 'latest',
+      react: 'latest',
+      '@types/foo-bar__bip': 'latest',
+      '@types/prop-types': 'latest',
+      '@types/react-dom': 'latest',
+      '@types/react': 'latest',
+      typescript: 'latest',
+    });
+  });
+
+  it('should handle multilines', () => {
+    const source = `
+import 'date-fns';
+import React from 'react';
+import {
+  MuiPickersUtilsProvider,
+  KeyboardTimePicker,
+  KeyboardDatePicker,
+} from '@material-ui/pickers';
+    `;
+
+    expect(getDependencies(source)).to.deep.equal({
+      'date-fns': 'latest',
+      '@material-ui/pickers': 'latest',
+      react: 'latest',
+      'react-dom': 'latest',
+    });
+  });
+
+  it('should include core if lab present', () => {
+    const source = `
+import lab from '@material-ui/lab';
+    `;
+
+    expect(getDependencies(source)).to.deep.equal({
+      '@material-ui/core': 'latest',
+      '@material-ui/lab': 'latest',
+      react: 'latest',
+      'react-dom': 'latest',
     });
   });
 });

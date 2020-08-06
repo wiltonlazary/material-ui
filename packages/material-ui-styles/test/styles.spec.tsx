@@ -2,18 +2,22 @@ import * as React from 'react';
 import {
   createStyles,
   withStyles,
-  ThemeProvider,
   withTheme,
   WithTheme,
   WithStyles,
+  makeStyles,
+  CSSProperties,
+  CreateCSSProperties,
+  PropsFunc,
 } from '@material-ui/styles';
-import Button from '@material-ui/core/Button/Button';
+import Button from '@material-ui/core/Button';
 import { Theme } from '@material-ui/core/styles';
+import { expectType } from '@material-ui/types';
 
 // Example 1
 const styles = ({ palette, spacing }: Theme) => ({
   root: {
-    padding: spacing.unit,
+    padding: spacing(1),
     backgroundColor: palette.background.default,
     color: palette.primary.dark,
   },
@@ -30,9 +34,10 @@ const StyledExampleOne = withStyles(styles)(({ classes, text }: ComponentProps) 
 <StyledExampleOne text="I am styled!" />;
 
 // Example 2
-const Component: React.SFC<ComponentProps & WithStyles<typeof styles>> = ({ classes, text }) => (
-  <div className={classes.root}>{text}</div>
-);
+const Component: React.FunctionComponent<ComponentProps & WithStyles<typeof styles>> = ({
+  classes,
+  text,
+}) => <div className={classes.root}>{text}</div>;
 
 const StyledExampleTwo = withStyles(styles)(Component);
 <StyledExampleTwo text="I am styled!" />;
@@ -47,9 +52,10 @@ const styleRule = createStyles({
   },
 });
 
-const ComponentWithChildren: React.SFC<WithStyles<typeof styles>> = ({ classes, children }) => (
-  <div className={classes.root}>{children}</div>
-);
+const ComponentWithChildren: React.FunctionComponent<WithStyles<typeof styles>> = ({
+  classes,
+  children,
+}) => <div className={classes.root}>{children}</div>;
 
 const StyledExampleThree = withStyles(styleRule)(ComponentWithChildren);
 <StyledExampleThree />;
@@ -66,11 +72,12 @@ const AnotherStyledSFC = withStyles({
 })(({ classes }: WithStyles<'root'>) => <div className={classes.root}>Stylish!</div>);
 
 // withTheme
-const ComponentWithTheme = withTheme<Theme>()(({ theme }: WithTheme<Theme>) => (
-  <div>{theme.spacing.unit}</div>
-));
+const ComponentWithTheme = withTheme<Theme, React.FunctionComponent<WithTheme<Theme>>>(
+  ({ theme }: WithTheme<Theme>) => <div>{theme.spacing(1)}</div>,
+);
 
-<ComponentWithTheme />;
+const componentWithThemeRef = React.createRef<HTMLDivElement>();
+<ComponentWithTheme ref={componentWithThemeRef} />;
 
 // withStyles + withTheme
 type AllTheProps = WithTheme<Theme> & WithStyles<typeof styles>;
@@ -79,15 +86,15 @@ const StyledComponent = withStyles(styles)(({ theme, classes }: AllTheProps) => 
   <div className={classes.root}>{theme.palette.text.primary}</div>
 ));
 
-// missing prop theme
-<StyledComponent />; // $ExpectError
+// @ts-expect-error missing prop theme
+<StyledComponent />;
 
-const AllTheComposition = withTheme<Theme>()(StyledComponent);
+const AllTheComposition = withTheme<Theme, typeof StyledComponent>(StyledComponent);
 
 <AllTheComposition />;
 
 {
-  const Foo = withTheme<Theme>()(
+  const Foo = withTheme<Theme, React.ComponentClass<WithTheme<Theme>>>(
     class extends React.Component<WithTheme<Theme>> {
       render() {
         return null;
@@ -107,17 +114,17 @@ declare const themed: boolean;
   const Foo = withStyles(themedStyles, { withTheme: true })(
     class extends React.Component<WithTheme<Theme>> {
       render() {
-        return <div style={{ margin: this.props.theme.spacing.unit }} />;
+        return <div style={{ margin: this.props.theme.spacing(1) }} />;
       }
     },
   );
   <Foo />;
 
-  const Bar = withStyles(themedStyles, { withTheme: true })(
-    ({ theme }: WithStyles<typeof themedStyles, true>) => (
-      <div style={{ margin: theme.spacing.unit }} />
-    ),
-  );
+  const Bar = withStyles(themedStyles, {
+    withTheme: true,
+  })(({ theme }: WithStyles<typeof themedStyles, true>) => (
+    <div style={{ margin: theme.spacing(1) }} />
+  ));
   <Bar />;
 }
 
@@ -137,13 +144,13 @@ const DecoratedComponent = withStyles(styles)(
 <DecoratedComponent text="foo" />;
 
 // Allow nested pseudo selectors
-withStyles(theme =>
+withStyles((theme) =>
   createStyles({
-    guttered: theme.mixins.gutters({
+    guttered: {
       '&:hover': {
         textDecoration: 'none',
       },
-    }),
+    },
     listItem: {
       '&:hover $listItemIcon': {
         visibility: 'inherit',
@@ -161,9 +168,9 @@ withStyles(theme =>
     content: {
       minHeight: '100vh',
     },
-    // $ExpectError
     '@media (min-width: 960px)': {
       content: {
+        // @ts-expect-error
         display: 'flex',
       },
     },
@@ -195,7 +202,7 @@ withStyles(theme =>
 
       inset: {
         '&:first-child': {
-          paddingLeft: theme.spacing.unit * 7,
+          paddingLeft: theme.spacing(7),
         },
       },
       row: {
@@ -206,7 +213,7 @@ withStyles(theme =>
     });
 
   interface ListItemContentProps extends WithStyles<typeof styles> {
-    children?: React.ReactElement<any>;
+    children?: React.ReactElement;
     inset?: boolean;
     row?: boolean;
   }
@@ -299,23 +306,30 @@ withStyles(theme =>
   }
 
   class Component extends React.Component<Props & WithStyles<typeof styles>> {}
-  // $ExpectError
+  // @ts-expect-error
   const StyledComponent = withStyles(styles)(Component);
 
-  // implicit SFC
-  withStyles(styles)((props: Props) => null); // $ExpectError
-  withStyles(styles)((props: Props & WithStyles<typeof styles>) => null); // $ExpectError
-  withStyles(styles)((props: Props & { children?: React.ReactNode }) => null); // $ExpectError
+  // @ts-expect-error implicit FunctionComponent
+  withStyles(styles)((props: Props) => null);
+  // @ts-expect-error
+  withStyles(styles)((props: Props & WithStyles<typeof styles>) => null);
+  // @ts-expect-error
+  withStyles(styles)((props: Props & { children?: React.ReactNode }) => null);
   withStyles(styles)(
-    (props: Props & WithStyles<typeof styles> & { children?: React.ReactNode }) => null, // $ExpectError
+    // @ts-expect-error
+    (props: Props & WithStyles<typeof styles> & { children?: React.ReactNode }) => null,
   );
 
   // explicit not but with "Property 'children' is missing in type 'ValidationMap<Props>'".
   // which is not helpful
-  const StatelessComponent: React.SFC<Props> = props => null;
-  const StatelessComponentWithStyles: React.SFC<Props & WithStyles<typeof styles>> = props => null;
-  withStyles(styles)(StatelessComponent); // $ExpectError
-  withStyles(styles)(StatelessComponentWithStyles); // $ExpectError
+  const StatelessComponent: React.FunctionComponent<Props> = (props) => null;
+  const StatelessComponentWithStyles: React.FunctionComponent<Props & WithStyles<typeof styles>> = (
+    props,
+  ) => null;
+  // @ts-expect-error
+  withStyles(styles)(StatelessComponent);
+  // @ts-expect-error
+  withStyles(styles)(StatelessComponentWithStyles);
 }
 
 {
@@ -350,8 +364,8 @@ withStyles(theme =>
   const StyledMyButton = withStyles(styles)(MyButton);
 
   const CorrectUsage = () => <StyledMyButton nonDefaulted="2" />;
-  // Property 'nonDefaulted' is missing in type '{}'
-  const MissingPropUsage = () => <StyledMyButton />; // $ExpectError
+  // @ts-expect-error Property 'nonDefaulted' is missing in type '{}'
+  const MissingPropUsage = () => <StyledMyButton />;
 }
 
 {
@@ -382,9 +396,106 @@ withStyles(theme =>
   const StyledMyComponent = withStyles(styles)(MyComponent);
   const renderedStyledMyComponent = <StyledMyComponent message="Hi" />;
 
-  //  number is not assignable to 'blue' | 'red'
-  // $ExpectError
+  // @ts-expect-error number is not assignable to 'blue' | 'red'
   interface InconsistentProps extends WithStyles<typeof styles> {
     color: number;
   }
+}
+
+function forwardRefTest() {
+  const styles = createStyles({
+    root: { color: 'red' },
+  });
+
+  function Anchor(props: WithStyles<typeof styles>) {
+    const { classes } = props;
+    return <a className={classes.root} />;
+  }
+  const StyledAnchor = withStyles(styles)(Anchor);
+
+  const anchorRef = React.useRef<HTMLAnchorElement>(null);
+  // forwarded to function components which can't hold refs
+  // @ts-expect-error property 'ref' does not exists
+  <StyledAnchor ref={anchorRef} />;
+  <StyledAnchor innerRef={anchorRef} />;
+
+  const RefableAnchor = React.forwardRef<HTMLAnchorElement, WithStyles<typeof styles>>(
+    (props, ref) => {
+      const { classes } = props;
+      return <a className={classes.root} />;
+    },
+  );
+  const StyledRefableAnchor = withStyles(styles)(RefableAnchor);
+
+  <StyledRefableAnchor ref={anchorRef} />;
+  const buttonRef = React.createRef<HTMLButtonElement>();
+  // @ts-expect-error HTMLButtonElement is missing properties
+  <StyledRefableAnchor ref={buttonRef} />;
+  // undesired: `innerRef` is currently typed as any but for backwards compat we're keeping it
+  // especially since `innerRef` will be removed in v5 and is equivalent to `ref`
+  <StyledRefableAnchor innerRef={buttonRef} />;
+}
+
+{
+  // https://github.com/mui-org/material-ui/pull/15546
+  // Update type definition to let CSS properties be functions
+  interface testProps {
+    foo: boolean;
+  }
+  const useStyles = makeStyles((theme: Theme) => ({
+    root: {
+      width: (prop: testProps) => (prop.foo ? 100 : 0),
+    },
+    root2: (prop2: testProps) => ({
+      width: (prop: testProps) => (prop.foo && prop2.foo ? 100 : 0),
+      height: 100,
+    }),
+  }));
+
+  const styles = useStyles({ foo: true });
+  expectType<Record<'root' | 'root2', string>, typeof styles>(styles);
+}
+
+{
+  // If there are no props, use the definition that doesn't accept them
+  // https://github.com/mui-org/material-ui/issues/16198
+
+  const styles = createStyles({
+    root: {
+      width: 1,
+    },
+  });
+  expectType<
+    Record<'root', CSSProperties | CreateCSSProperties | PropsFunc<{}, CreateCSSProperties>>,
+    typeof styles
+  >(styles);
+
+  const styles2 = createStyles({
+    root: () => ({
+      width: 1,
+    }),
+  });
+  expectType<
+    Record<'root', CSSProperties | CreateCSSProperties | PropsFunc<{}, CreateCSSProperties>>,
+    typeof styles2
+  >(styles2);
+
+  interface testProps {
+    foo: boolean;
+  }
+
+  const styles3 = createStyles({
+    root: (props: testProps) => ({
+      width: 1,
+    }),
+  });
+  expectType<
+    Record<
+      'root',
+      | CSSProperties
+      | CreateCSSProperties<testProps>
+      | PropsFunc<testProps, CreateCSSProperties<testProps>>
+    >,
+    typeof styles3
+  >(styles3);
 }

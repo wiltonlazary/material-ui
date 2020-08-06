@@ -1,30 +1,34 @@
-import React from 'react';
-import { assert } from 'chai';
-import { createShallow, createMount } from '@material-ui/core/test-utils';
-import InputBase from '../InputBase';
+import * as React from 'react';
+import { expect } from 'chai';
+import { getClasses } from '@material-ui/core/test-utils';
+import createMount from 'test/utils/createMount';
+import describeConformance from '../test-utils/describeConformance';
+import { createClientRender } from 'test/utils/createClientRender';
 import OutlinedInput from './OutlinedInput';
-import NotchedOutline from './NotchedOutline';
+import InputBase from '../InputBase';
 
 describe('<OutlinedInput />', () => {
-  let shallow;
-  let mount;
+  let classes;
+  const mount = createMount();
+  const render = createClientRender();
 
   before(() => {
-    shallow = createShallow({ untilSelector: 'OutlinedInput' });
-    mount = createMount();
+    classes = getClasses(<OutlinedInput />);
   });
 
-  after(() => {
-    mount.cleanUp();
-  });
+  describeConformance(<OutlinedInput labelWidth={0} />, () => ({
+    classes,
+    inheritComponent: InputBase,
+    mount,
+    refInstanceof: window.HTMLDivElement,
+    skip: ['componentProp'],
+  }));
 
-  it('should render a <div />', () => {
-    const wrapper = shallow(<OutlinedInput labelWidth={0} />);
-    assert.strictEqual(wrapper.type(), InputBase);
-  });
+  it('should render a NotchedOutline', () => {
+    const { container } = render(
+      <OutlinedInput classes={{ notchedOutline: 'notched-outlined' }} labelWidth={0} />,
+    );
 
-  it('should mount', () => {
-    const wrapper = mount(<OutlinedInput labelWidth={0} />);
-    assert.strictEqual(wrapper.find(NotchedOutline).length, 1);
+    expect(container.querySelector('.notched-outlined')).not.to.equal(null);
   });
 });

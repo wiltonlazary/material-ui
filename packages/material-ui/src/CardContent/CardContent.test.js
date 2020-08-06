@@ -1,20 +1,22 @@
-import React from 'react';
-import { assert } from 'chai';
-import { createShallow, getClasses } from '@material-ui/core/test-utils';
+import * as React from 'react';
+import { getClasses } from '@material-ui/core/test-utils';
+import createMount from 'test/utils/createMount';
+import describeConformance from '../test-utils/describeConformance';
 import CardContent from './CardContent';
 
 describe('<CardContent />', () => {
-  let shallow;
+  const mount = createMount();
   let classes;
 
   before(() => {
-    shallow = createShallow({ untilSelector: 'CardContent' });
     classes = getClasses(<CardContent />);
   });
 
-  it('should render a div with the root class', () => {
-    const wrapper = shallow(<CardContent />);
-    assert.strictEqual(wrapper.name(), 'div');
-    assert.strictEqual(wrapper.hasClass(classes.root), true);
-  });
+  describeConformance(<CardContent />, () => ({
+    classes,
+    inheritComponent: 'div',
+    mount,
+    refInstanceof: window.HTMLDivElement,
+    testComponentPropWith: 'span',
+  }));
 });

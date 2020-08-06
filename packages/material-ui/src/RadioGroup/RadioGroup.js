@@ -1,122 +1,102 @@
-// @inheritedComponent FormGroup
-
-import React from 'react';
+import * as React from 'react';
 import PropTypes from 'prop-types';
-import warning from 'warning';
 import FormGroup from '../FormGroup';
-import { createChainedFunction, find } from '../utils/helpers';
+import useForkRef from '../utils/useForkRef';
+import useControlled from '../utils/useControlled';
+import RadioGroupContext from './RadioGroupContext';
+import useId from '../utils/unstable_useId';
 
-class RadioGroup extends React.Component {
-  radios = [];
+const RadioGroup = React.forwardRef(function RadioGroup(props, ref) {
+  const {
+    // private
+    // eslint-disable-next-line react/prop-types
+    actions,
+    children,
+    name: nameProp,
+    value: valueProp,
+    onChange,
+    ...other
+  } = props;
+  const rootRef = React.useRef(null);
 
-  state = {
-    value: null,
+  const [value, setValue] = useControlled({
+    controlled: valueProp,
+    default: props.defaultValue,
+    name: 'RadioGroup',
+  });
+
+  React.useImperativeHandle(
+    actions,
+    () => ({
+      focus: () => {
+        let input = rootRef.current.querySelector('input:not(:disabled):checked');
+
+        if (!input) {
+          input = rootRef.current.querySelector('input:not(:disabled)');
+        }
+
+        if (input) {
+          input.focus();
+        }
+      },
+    }),
+    [],
+  );
+
+  const handleRef = useForkRef(ref, rootRef);
+
+  const handleChange = (event) => {
+    setValue(event.target.value);
+
+    if (onChange) {
+      onChange(event, event.target.value);
+    }
   };
 
-  constructor(props) {
-    super();
-    this.isControlled = props.value != null;
-  }
+  const name = useId(nameProp);
 
-  focus = () => {
-    if (!this.radios || !this.radios.length) {
-      return;
-    }
-
-    const focusRadios = this.radios.filter(n => !n.disabled);
-
-    if (!focusRadios.length) {
-      return;
-    }
-
-    const selectedRadio = find(focusRadios, n => n.checked);
-
-    if (selectedRadio) {
-      selectedRadio.focus();
-      return;
-    }
-
-    focusRadios[0].focus();
-  };
-
-  handleChange = event => {
-    if (!this.isControlled) {
-      this.setState({
-        value: event.target.value,
-      });
-    }
-
-    if (this.props.onChange) {
-      this.props.onChange(event, event.target.value);
-    }
-  };
-
-  render() {
-    const { children, name, value: valueProp, onChange, ...other } = this.props;
-
-    const value = this.isControlled ? valueProp : this.state.value;
-    this.radios = [];
-
-    return (
-      <FormGroup role="radiogroup" {...other}>
-        {React.Children.map(children, child => {
-          if (!React.isValidElement(child)) {
-            return null;
-          }
-
-          warning(
-            child.type !== React.Fragment,
-            [
-              "Material-UI: the RadioGroup component doesn't accept a Fragment as a child.",
-              'Consider providing an array instead.',
-            ].join('\n'),
-          );
-
-          return React.cloneElement(child, {
-            name,
-            inputRef: node => {
-              if (node) {
-                this.radios.push(node);
-              }
-            },
-            checked: value === child.props.value,
-            onChange: createChainedFunction(child.props.onChange, this.handleChange),
-          });
-        })}
+  return (
+    <RadioGroupContext.Provider value={{ name, onChange: handleChange, value }}>
+      <FormGroup role="radiogroup" ref={handleRef} {...other}>
+        {children}
       </FormGroup>
-    );
-  }
-}
+    </RadioGroupContext.Provider>
+  );
+});
 
 RadioGroup.propTypes = {
+  // ----------------------------- Warning --------------------------------
+  // | These PropTypes are generated from the TypeScript type definitions |
+  // |     To update them edit the d.ts file and run "yarn proptypes"     |
+  // ----------------------------------------------------------------------
   /**
    * The content of the component.
    */
   children: PropTypes.node,
   /**
+   * The default `input` element value. Use when the component is not controlled.
+   */
+  defaultValue: PropTypes.oneOfType([
+    PropTypes.arrayOf(PropTypes.string),
+    PropTypes.number,
+    PropTypes.string,
+  ]),
+  /**
    * The name used to reference the value of the control.
+   * If you don't provide this prop, it falls back to a randomly generated name.
    */
   name: PropTypes.string,
-  /**
-   * @ignore
-   */
-  onBlur: PropTypes.func,
   /**
    * Callback fired when a radio button is selected.
    *
    * @param {object} event The event source of the callback.
-   * You can pull out the new value by accessing `event.target.value`.
-   * @param {string} value The `value` of the selected radio button
+   * You can pull out the new value by accessing `event.target.value` (string).
    */
   onChange: PropTypes.func,
   /**
-   * @ignore
+   * Value of the selected radio button. The DOM API casts this to a string.
    */
-  onKeyDown: PropTypes.func,
-  /**
-   * Value of the selected radio button.
-   */
-  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.bool]),
+  value: PropTypes.any,
 };
 
 export default RadioGroup;

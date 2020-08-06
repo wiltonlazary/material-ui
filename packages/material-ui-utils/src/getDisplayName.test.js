@@ -1,7 +1,6 @@
 /* eslint-disable react/prefer-stateless-function */
-/* eslint-disable react/no-multi-comp */
 import React from 'react';
-import { assert } from 'chai';
+import { expect } from 'chai';
 import getDisplayName, { getFunctionName } from './getDisplayName';
 
 describe('utils/getDisplayName.js', () => {
@@ -25,17 +24,45 @@ describe('utils/getDisplayName.js', () => {
         return <div />;
       }
 
-      const AndAnotherComponent = () => {
-        return <div />;
-      };
+      const AndAnotherComponent = () => <div />;
 
-      assert.strictEqual(getDisplayName(SomeComponent), 'SomeComponent');
-      assert.strictEqual(getDisplayName(SomeOtherComponent), 'CustomDisplayName');
-      assert.strictEqual(getDisplayName(YetAnotherComponent), 'YetAnotherComponent');
-      assert.strictEqual(getDisplayName(AndAnotherComponent), 'AndAnotherComponent');
-      assert.strictEqual(getDisplayName(() => <div />), 'Component');
-      assert.strictEqual(getDisplayName('div'), 'div');
-      assert.strictEqual(getDisplayName(), undefined);
+      const AnonymousForwardRefComponent = React.forwardRef((props, ref) => (
+        <div {...props} ref={ref} />
+      ));
+
+      const ForwardRefComponent = React.forwardRef(function Div(props, ref) {
+        return <div {...props} ref={ref} />;
+      });
+
+      const NamedForwardRefComponent = React.forwardRef((props, ref) => (
+        <div {...props} ref={ref} />
+      ));
+      NamedForwardRefComponent.displayName = 'Div';
+
+      const AnonymousMemoComponent = React.memo((props, ref) => <div {...props} ref={ref} />);
+
+      const MemoComponent = React.memo(function Div(props, ref) {
+        return <div {...props} ref={ref} />;
+      });
+
+      const NamedMemoComponent = React.memo((props, ref) => <div {...props} ref={ref} />);
+      NamedMemoComponent.displayName = 'Div';
+
+      expect(getDisplayName(SomeComponent)).to.equal('SomeComponent');
+      expect(getDisplayName(SomeOtherComponent)).to.equal('CustomDisplayName');
+      expect(getDisplayName(YetAnotherComponent)).to.equal('YetAnotherComponent');
+      expect(getDisplayName(AndAnotherComponent)).to.equal('AndAnotherComponent');
+      expect(getDisplayName(() => <div />)).to.equal('Component');
+      expect(getDisplayName('div')).to.equal('div');
+      expect(getDisplayName(AnonymousForwardRefComponent)).to.equal('ForwardRef');
+      expect(getDisplayName(ForwardRefComponent)).to.equal('ForwardRef(Div)');
+      expect(getDisplayName(NamedForwardRefComponent)).to.equal('Div');
+      expect(getDisplayName(AnonymousMemoComponent)).to.equal('memo');
+      expect(getDisplayName(MemoComponent)).to.equal('memo(Div)');
+      expect(getDisplayName(NamedMemoComponent)).to.equal('Div');
+      expect(getDisplayName()).to.equal(undefined);
+      expect(getDisplayName({})).to.equal(undefined);
+      expect(getDisplayName(false)).to.equal(undefined);
     });
   });
 
@@ -45,12 +72,10 @@ describe('utils/getDisplayName.js', () => {
         return <div />;
       }
 
-      const SomeOtherFunction = () => {
-        return <div />;
-      };
+      const SomeOtherFunction = () => <div />;
 
-      assert.strictEqual(getFunctionName(SomeFunction), 'SomeFunction');
-      assert.strictEqual(getFunctionName(SomeOtherFunction), 'SomeOtherFunction');
+      expect(getFunctionName(SomeFunction)).to.equal('SomeFunction');
+      expect(getFunctionName(SomeOtherFunction)).to.equal('SomeOtherFunction');
     });
   });
 });

@@ -4,26 +4,29 @@
 
 ## Text alignment
 
+{{"demo": "pages/system/typography/TextAlignment.js", "defaultCodeOpen": false}}
+
 ```jsx
 <Box textAlign="left">…
 <Box textAlign="center">…
 <Box textAlign="right">…
 ```
 
-{{"demo": "pages/system/typography/TextAlignment.js"}}
-
 ## Font weight
+
+{{"demo": "pages/system/typography/FontWeight.js", "defaultCodeOpen": false}}
 
 ```jsx
 <Box fontWeight="fontWeightLight">…
 <Box fontWeight="fontWeightRegular">…
 <Box fontWeight="fontWeightMedium">…
-<Box fontWeight={600}>…
+<Box fontWeight={500}>…
+<Box fontWeight="fontWeightBold">…
 ```
 
-{{"demo": "pages/system/typography/FontWeight.js"}}
-
 ## Font size
+
+{{"demo": "pages/system/typography/FontSize.js", "defaultCodeOpen": false}}
 
 ```jsx
 <Box fontSize="fontSize">…
@@ -31,16 +34,42 @@
 <Box fontSize={16}>…
 ```
 
-{{"demo": "pages/system/typography/FontSize.js"}}
+## Font Style
+
+{{"demo": "pages/system/typography/FontStyle.js", "defaultCodeOpen": false}}
+
+```jsx
+<Box fontStyle="normal">…
+<Box fontStyle="italic">…
+<Box fontStyle="oblique">…
+```
 
 ## Font family
+
+{{"demo": "pages/system/typography/FontFamily.js", "defaultCodeOpen": false}}
 
 ```jsx
 <Box fontFamily="fontFamily">…
 <Box fontFamily="Monospace">…
 ```
 
-{{"demo": "pages/system/typography/FontFamily.js"}}
+## Letter Spacing
+
+{{"demo": "pages/system/typography/LetterSpacing.js", "defaultCodeOpen": false}}
+
+```jsx
+<Box letterSpacing={6}>…
+<Box letterSpacing={10}>…
+```
+
+## Line Height
+
+{{"demo": "pages/system/typography/LineHeight.js", "defaultCodeOpen": false}}
+
+```jsx
+<Box lineHeight="normal">…
+<Box lineHeight={10}>…
+```
 
 ## API
 
@@ -50,7 +79,10 @@ import { typography } from '@material-ui/system';
 
 | Import name | Prop | CSS property | Theme key |
 |:------------|:-----|:-------------|:----------|
-| `fontFamily` | `fontFamily` | `font-family` | `typography` |
-| `fontSize` | `fontSize` | `font-size` | `typography` |
-| `fontWeight` | `fontWeight` | `font-weight` | `typography` |
+| `fontFamily` | `fontFamily` | `font-family` | [`typography`](/customization/default-theme/?expand-path=$.typography) |
+| `fontSize` | `fontSize` | `font-size` | [`typography`](/customization/default-theme/?expand-path=$.typography) |
+| `fontStyle` | `fontStyle` | `font-style` | [`typography`](/customization/default-theme/?expand-path=$.typography) |
+| `fontWeight` | `fontWeight` | `font-weight` | [`typography`](/customization/default-theme/?expand-path=$.typography) |
+| `letterSpacing` | `letterSpacing` | `letter-spacing` | none |
+| `lineHeight` | `lineHeight` | `line-height` | none |
 | `textAlign` | `textAlign` | `text-align` | none |

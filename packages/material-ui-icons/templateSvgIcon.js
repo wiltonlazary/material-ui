@@ -1,6 +1,6 @@
-import React from 'react';
+import * as React from 'react';
 import createSvgIcon from './utils/createSvgIcon';
 
 export default createSvgIcon(
-  <React.Fragment>{{{paths}}}</React.Fragment>
+  {{{paths}}}
 , '{{componentName}}');
